@@ -1,0 +1,40 @@
+{
+  "name": "vibecheck-root",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently 'bun:dev:*'",
+    "dev:client": "bun run --cwd client dev",
+    "dev:server": "bun run --cwd server dev",
+    "build": "concurrently 'bun:build:*'",
+    "build:client": "bun run --cwd client build",
+    "build:server": "bun run --cwd server build",
+    "deploy": "concurrently 'bun:deploy:*'",
+    "deploy:client": "bun run --cwd client deploy",
+    "deploy:server": "bun run --cwd server deploy",
+    "ship": "concurrently 'bun:ship:*'",
+    "ship:client": "bun run --cwd client ship",
+    "ship:server": "bun run --cwd server ship"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.8",
+    "concurrently": "^9.1.2",
+    "prettier": "^3.5.3",
+    "prettier-plugin-organize-imports": "^4.1.0",
+    "typescript": "^5.8.2"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "prettier": {
+    "singleQuote": true,
+    "semi": false,
+    "trailingComma": "es5",
+    "printWidth": 120,
+    "tabWidth": 2,
+    "useTabs": false,
+    "plugins": [
+      "prettier-plugin-organize-imports"
+    ]
+  }
+}

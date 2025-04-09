@@ -1,0 +1,24 @@
+{
+  "name": "vibecheck-server",
+  "scripts": {
+    "types": "wrangler types",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "echo 'noop'",
+    "ship": "bun run build && bun run deploy"
+  },
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "^1.2.8",
+    "wrangler": "^4.7.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "itty-durable": "^2.4.1",
+    "itty-router": "^5.0.18",
+    "trouter": "^4.0.0"
+  }
+}
