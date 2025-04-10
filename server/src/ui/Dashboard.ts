@@ -53,10 +53,10 @@ const DashboardContent = ({ templates }: DashboardProps) => {
           // Introduction section
           div(
             { class: 'mb-8' },
-            h2({ class: 'text-2xl font-bold mb-4' }, 'RAG (Retrieval-Augmented Generation) Integration'),
+            h2({ class: 'text-2xl font-bold mb-4' }, 'LLM Integration Guide'),
             p(
               { class: 'text-base-content/80 mb-4' },
-              "This room comes with built-in RAG context that makes it easy to integrate with AI assistants. Below you'll find three essential resources for integrating with your Vibescale room:"
+              "This room comes with built-in LLM context that makes it easy to integrate with AI assistants. Below you'll find the essential documentation for integrating with your Vibescale room:"
             )
           ),
           // API Documentation section
@@ -80,56 +80,6 @@ const DashboardContent = ({ templates }: DashboardProps) => {
                 const el = document.createElement('div')
                 el.className = 'prose prose-invert max-w-none'
                 el.innerHTML = renderMarkdown(roomInstructions)
-                return el
-              })()
-            )
-          ),
-          // Network Types section
-          div(
-            { class: 'space-y-4' },
-            div(
-              { class: 'flex items-center gap-2' },
-              h3({ class: 'text-xl font-semibold' }, 'Network Types'),
-              ClipboardButton({
-                text: templates.networkTypes,
-                title: 'Copy Network Types',
-              })
-            ),
-            p(
-              { class: 'text-base-content/80' },
-              'TypeScript definitions for all network messages and data structures. Use these to ensure type safety in your client implementation.'
-            ),
-            div(
-              { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px]' },
-              (() => {
-                const el = document.createElement('div')
-                el.className = 'prose prose-invert max-w-none'
-                el.innerHTML = renderMarkdown(templates.networkTypes, 'typescript')
-                return el
-              })()
-            )
-          ),
-          // State Change Detector section
-          div(
-            { class: 'space-y-4' },
-            div(
-              { class: 'flex items-center gap-2' },
-              h3({ class: 'text-xl font-semibold' }, 'State Change Detector'),
-              ClipboardButton({
-                text: templates.stateChangeDetector,
-                title: 'Copy State Change Detector',
-              })
-            ),
-            p(
-              { class: 'text-base-content/80' },
-              'A utility to prevent network spam by only sending state updates when they exceed certain thresholds. This helps optimize network traffic in your game.'
-            ),
-            div(
-              { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px]' },
-              (() => {
-                const el = document.createElement('div')
-                el.className = 'prose prose-invert max-w-none'
-                el.innerHTML = renderMarkdown(templates.stateChangeDetector, 'typescript')
                 return el
               })()
             )
