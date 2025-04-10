@@ -24,7 +24,7 @@ alwaysApply: true
   - `main.ts` - Application entry point
   - `state.ts` - State management
   - `router.ts` - Application routing
-* Tailwind/DaisyUI is available in [styles.css](src/styles/styles.css)
+* Tailwind/DaisyUI is available in [styles.css](mdc:src/styles/styles.css)
 * The project uses Vite-Cloudflare integration for unified client/server development
 
 ## Styling Guidelines
