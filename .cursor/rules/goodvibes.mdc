@@ -3,7 +3,7 @@ description:
 globs: 
 alwaysApply: true
 ---
-# GoodVibes Project Guidelines
+# Project Guidelines
 
 ## Core Architecture
 * Bun is our package manager.

@@ -9,11 +9,16 @@ interface NavItem {
   isActive?: boolean
 }
 
-const navItems: NavItem[] = []
+const navItems: NavItem[] = [
+  // Intentionally empty
+]
 
-export const Navbar = () => {
+interface NavbarProps {
+  router: Navigo
+}
+
+export const Navbar = ({ router }: NavbarProps) => {
   const isMenuOpen = van.state(false)
-  const router = new Navigo('/', { strategy: 'ONE' })
 
   const toggleMenu = () => {
     isMenuOpen.val = !isMenuOpen.val

@@ -67,7 +67,7 @@ export const initRouter = (appState: AppState, templates: any) => {
     appState.isValid.val = true
     appState.currentView.val = 'dashboard'
     appState.activeTab.val = 'overview'
-    renderView(Dashboard({ appState, templates }))
+    renderView(Dashboard({ appState, templates, router }))
   })
 
   // RAG route
@@ -81,7 +81,7 @@ export const initRouter = (appState: AppState, templates: any) => {
     appState.isValid.val = true
     appState.currentView.val = 'dashboard'
     appState.activeTab.val = 'rag'
-    renderView(Dashboard({ appState, templates }))
+    renderView(Dashboard({ appState, templates, router }))
   })
 
   // Debug route
@@ -95,7 +95,7 @@ export const initRouter = (appState: AppState, templates: any) => {
     appState.isValid.val = true
     appState.currentView.val = 'dashboard'
     appState.activeTab.val = 'debug'
-    renderView(Dashboard({ appState, templates }))
+    renderView(Dashboard({ appState, templates, router }))
   })
 
   // 404 route

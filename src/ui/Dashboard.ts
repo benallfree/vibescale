@@ -1,3 +1,4 @@
+import Navigo from 'navigo'
 import van, { State } from 'vanjs-core'
 import { renderMarkdown } from '../utils/prism'
 import { ClipboardButton } from './ClipboardButton'
@@ -15,6 +16,7 @@ interface DashboardProps {
     networkTypes: string
     stateChangeDetector: string
   }
+  router: Navigo
 }
 
 const generateUrls = (roomName: string) => ({
@@ -26,7 +28,7 @@ const generateRoomInstructions = (roomName: string, instructions: string): strin
   return instructions.replace(/{{roomName}}/g, roomName)
 }
 
-const DashboardContent = ({ appState, templates }: DashboardProps) => {
+const DashboardContent = ({ appState, templates, router }: DashboardProps) => {
   const urls = generateUrls(appState.roomName.val)
   const roomInstructions = generateRoomInstructions(appState.roomName.val, templates.instructions)
 
@@ -147,7 +149,7 @@ const DashboardContent = ({ appState, templates }: DashboardProps) => {
   return div({ class: 'bg-base-200 rounded-lg min-h-[400px]' }, content)
 }
 
-export const Dashboard = ({ appState, templates }: DashboardProps) =>
+export const Dashboard = ({ appState, templates, router }: DashboardProps) =>
   div(
     { class: 'container mx-auto px-4 py-8' },
     div(
@@ -157,6 +159,6 @@ export const Dashboard = ({ appState, templates }: DashboardProps) =>
         () => `Room: ${appState.roomName.val}`
       )
     ),
-    TabNav(appState),
-    DashboardContent({ appState, templates })
+    TabNav({ appState, router }),
+    DashboardContent({ appState, templates, router })
   )

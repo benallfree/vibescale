@@ -28,6 +28,13 @@ const appState = {
   activeTab: van.state('overview'),
 }
 
+// Initialize the router first
+const router = initRouter(appState, {
+  instructions,
+  networkTypes,
+  stateChangeDetector,
+})
+
 // Create app container with conditional navbar
 const appContainer = div(
   { id: 'app' },
@@ -35,17 +42,10 @@ const appContainer = div(
     {
       class: () => (appState.currentView.val === 'home' ? '' : 'mt-16'),
     },
-    [() => (appState.currentView.val !== 'home' ? Navbar() : ''), div({ id: 'content' })]
+    [() => (appState.currentView.val !== 'home' ? Navbar({ router }) : null), div({ id: 'content' })]
   )
 )
 document.body.appendChild(appContainer)
-
-// Initialize the router
-const router = initRouter(appState, {
-  instructions,
-  networkTypes,
-  stateChangeDetector,
-})
 
 // Start the router
 router.resolve()
