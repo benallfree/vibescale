@@ -1,7 +1,13 @@
 import { marked } from 'marked'
 import Prism from 'prismjs'
 import van from 'vanjs-core'
-import * as vanX from 'vanjs-ext'
+
+// Import components
+import { ClipboardButton } from './ui/ClipboardButton'
+import { Features } from './ui/Features'
+import { Hero } from './ui/Hero'
+import { RoomCreator } from './ui/RoomCreator'
+import { TabNav } from './ui/TabNav'
 
 // Import templates
 import instructions from './templates/instructions.md?raw'
@@ -16,7 +22,31 @@ import 'prismjs/components/prism-typescript'
 import 'prismjs/themes/prism-tomorrow.css'
 import './styles/prism.css'
 
-const { div, header, section, h1, h2, h3, p, input, button, span, label, nav, ul, li, pre, code } = van.tags
+const {
+  div,
+  header,
+  section,
+  h1,
+  h2,
+  h3,
+  p,
+  input,
+  button,
+  span,
+  label,
+  nav,
+  ul,
+  li,
+  pre,
+  code,
+  g,
+  rect,
+  text,
+  tspan,
+} = van.tags
+
+// Create SVG elements with proper namespace
+const { svg, path } = van.tags('http://www.w3.org/2000/svg')
 
 // Configure marked options with proper Prism integration
 const renderer = new marked.Renderer()
@@ -35,160 +65,24 @@ marked.setOptions({
 })
 
 // App state
-const appState = vanX.reactive({
-  roomName: '',
-  isValid: false,
-  currentView: 'home',
-  activeTab: 'overview',
-})
+const appState = {
+  roomName: van.state(''),
+  isValid: van.state(false),
+  currentView: van.state('home'),
+  activeTab: van.state('overview'),
+}
 
 // Validation function
 const validateRoomName = (value: string) => {
   const isValid = value.length > 0 && /^[a-zA-Z0-9-]+$/.test(value)
-  appState.isValid = isValid
+  appState.isValid.val = isValid
   return isValid
 }
 
 // Components
-const Hero = () =>
-  header(
-    { class: 'container mx-auto px-4 py-8 text-center' },
-    h1(
-      { class: 'text-6xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text' },
-      'Vibescale'
-    ),
-    p({ class: 'text-2xl mb-8 text-gray-300' }, 'Build MMO games without the backend hassle')
-  )
-
-const RoomCreator = () => {
-  const validationIndicator = () =>
-    div(
-      {
-        id: 'validationIndicator',
-        class: () => `absolute right-4 top-1/2 -translate-y-1/2 text-error ${appState.isValid ? 'hidden' : ''}`,
-      },
-      '✕'
-    )
-
-  return section(
-    { class: 'container mx-auto px-4 py-8' },
-    div(
-      { class: 'max-w-md mx-auto' },
-      div(
-        { class: 'card bg-gradient-to-br from-base-300 to-base-200 shadow-2xl border border-base-300' },
-        div(
-          { class: 'card-body p-8' },
-          div(
-            { class: 'text-center space-y-3' },
-            h1(
-              {
-                class: 'text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text',
-              },
-              'Create Your MMO Room'
-            ),
-            p({ class: 'text-sm text-gray-400' }, 'Generate a unique room for your multiplayer game')
-          ),
-          div(
-            { class: 'form-control mt-8' },
-            label(
-              { class: 'label pb-3' },
-              span({ class: 'label-text font-medium' }, 'Room Name'),
-              span({ class: 'label-text-alt text-gray-400' }, 'Alphanumeric characters only')
-            ),
-            div(
-              { class: 'input-group input-group-lg relative' },
-              input({
-                type: 'text',
-                id: 'roomNameInput',
-                placeholder: 'my-awesome-game',
-                class:
-                  'input input-bordered w-full bg-base-100 focus:ring-2 focus:ring-primary transition-all duration-200 px-6 py-4',
-                oninput: (e: Event) => {
-                  const input = e.target as HTMLInputElement
-                  input.value = input.value.replace(/[^a-zA-Z0-9-]/g, '')
-                  appState.roomName = input.value
-                  validateRoomName(input.value)
-                },
-              }),
-              validationIndicator(),
-              button(
-                {
-                  id: 'generateButton',
-                  class: () =>
-                    `btn btn-primary hover:brightness-110 transition-all duration-200 px-6 mt-4 ${!appState.isValid ? 'btn-disabled' : ''}`,
-                  onclick: () => {
-                    if (!appState.isValid) return
-                    // Update URL with room parameter
-                    const url = new URL(window.location.href)
-                    url.searchParams.set('room', appState.roomName)
-                    window.history.pushState({}, '', url)
-                    // Update view state to dashboard
-                    appState.currentView = 'dashboard'
-                  },
-                },
-                span({ class: 'mr-1' }, '＋'),
-                'Create'
-              )
-            )
-          )
-        )
-      )
-    )
-  )
-}
-
-const Features = () =>
-  section(
-    { class: 'container mx-auto px-4 py-16' },
-    div(
-      { class: 'grid md:grid-cols-3 gap-8' },
-      div(
-        { class: 'card bg-base-200' },
-        div(
-          { class: 'card-body' },
-          h1({ class: 'card-title' }, 'Instant WebSocket Server'),
-          p({}, 'Ready-to-use WebSocket server for real-time multiplayer functionality')
-        )
-      ),
-      div(
-        { class: 'card bg-base-200' },
-        div(
-          { class: 'card-body' },
-          h1({ class: 'card-title' }, 'AI-Ready Context'),
-          p({}, 'LLM-friendly RAG context for seamless AI integration')
-        )
-      ),
-      div(
-        { class: 'card bg-base-200' },
-        div(
-          { class: 'card-body' },
-          h1({ class: 'card-title' }, 'Zero Backend Deploy'),
-          p({}, 'Focus on your game logic - we handle all the infrastructure')
-        )
-      )
-    )
-  )
+// RoomCreator has been moved to its own file
 
 // Dashboard Components
-const TabNav = () =>
-  nav(
-    { class: 'tabs tabs-boxed bg-base-200 p-2 mb-6' },
-    ul(
-      { class: 'flex' },
-      ['overview', 'rag', 'debug'].map((tab) =>
-        li(
-          button(
-            {
-              class: () => `tab ${appState.activeTab === tab ? 'tab-active' : ''}`,
-              onclick: () => (appState.activeTab = tab),
-            },
-            tab.charAt(0).toUpperCase() + tab.slice(1)
-          )
-        )
-      )
-    )
-  )
-
 const DashboardContent = () => {
   const generateUrls = (roomName: string) => ({
     http: `https://vibescale.benallfree.com/${roomName}`,
@@ -200,9 +94,11 @@ const DashboardContent = () => {
   }
 
   const content = () => {
-    switch (appState.activeTab) {
+    const urls = generateUrls(appState.roomName.val)
+    const roomInstructions = generateRoomInstructions(appState.roomName.val)
+
+    switch (appState.activeTab.val) {
       case 'overview':
-        const urls = generateUrls(appState.roomName)
         return div(
           { class: 'p-8 space-y-6' },
           h2({ class: 'text-2xl font-bold mb-6' }, 'Endpoints'),
@@ -221,7 +117,6 @@ const DashboardContent = () => {
           )
         )
       case 'rag':
-        const roomInstructions = generateRoomInstructions(appState.roomName)
         return div(
           { class: 'p-8 space-y-8' },
           // Introduction section
@@ -236,46 +131,20 @@ const DashboardContent = () => {
           // API Documentation section
           div(
             { class: 'space-y-4' },
-            h3({ class: 'text-xl font-semibold' }, 'API Documentation'),
+            div(
+              { class: 'flex items-center gap-2' },
+              h3({ class: 'text-xl font-semibold' }, 'API Documentation'),
+              ClipboardButton({
+                text: `Room URLs:\n${urls.http}\n${urls.ws}\n\nInstructions:\n${roomInstructions}`,
+                title: 'Copy API Documentation',
+              })
+            ),
             p(
               { class: 'text-base-content/80' },
               'Complete documentation of the REST and WebSocket endpoints, including message types and connection flow.'
             ),
             div(
-              { class: 'flex gap-4' },
-              button(
-                {
-                  class: 'btn btn-primary',
-                  onclick: (e: Event) => {
-                    const btn = e.target as HTMLButtonElement
-                    const urls = generateUrls(appState.roomName)
-                    const textToCopy = `Room URLs:\n${urls.http}\n${urls.ws}\n\nInstructions:\n${roomInstructions}`
-                    navigator.clipboard.writeText(textToCopy)
-                    btn.textContent = 'Copied!'
-                    setTimeout(() => {
-                      btn.textContent = 'Copy URLs + Instructions'
-                    }, 2000)
-                  },
-                },
-                'Copy URLs + Instructions'
-              ),
-              button(
-                {
-                  class: 'btn btn-outline',
-                  onclick: (e: Event) => {
-                    const btn = e.target as HTMLButtonElement
-                    navigator.clipboard.writeText(roomInstructions)
-                    btn.textContent = 'Copied!'
-                    setTimeout(() => {
-                      btn.textContent = 'Copy Instructions'
-                    }, 2000)
-                  },
-                },
-                'Copy Instructions'
-              )
-            ),
-            div(
-              { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px]' },
+              { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px] border border-black' },
               (() => {
                 const el = document.createElement('div')
                 el.className = 'prose prose-invert max-w-none'
@@ -287,24 +156,17 @@ const DashboardContent = () => {
           // Network Types section
           div(
             { class: 'space-y-4' },
-            h3({ class: 'text-xl font-semibold' }, 'Network Types'),
+            div(
+              { class: 'flex items-center gap-2' },
+              h3({ class: 'text-xl font-semibold' }, 'Network Types'),
+              ClipboardButton({
+                text: networkTypes,
+                title: 'Copy Network Types',
+              })
+            ),
             p(
               { class: 'text-base-content/80' },
               'TypeScript definitions for all network messages and data structures. Use these to ensure type safety in your client implementation.'
-            ),
-            button(
-              {
-                class: 'btn btn-outline',
-                onclick: (e: Event) => {
-                  const btn = e.target as HTMLButtonElement
-                  navigator.clipboard.writeText(networkTypes)
-                  btn.textContent = 'Copied!'
-                  setTimeout(() => {
-                    btn.textContent = 'Copy Network Types'
-                  }, 2000)
-                },
-              },
-              'Copy Network Types'
             ),
             div(
               { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px]' },
@@ -319,24 +181,17 @@ const DashboardContent = () => {
           // State Change Detector section
           div(
             { class: 'space-y-4' },
-            h3({ class: 'text-xl font-semibold' }, 'State Change Detector'),
+            div(
+              { class: 'flex items-center gap-2' },
+              h3({ class: 'text-xl font-semibold' }, 'State Change Detector'),
+              ClipboardButton({
+                text: stateChangeDetector,
+                title: 'Copy State Change Detector',
+              })
+            ),
             p(
               { class: 'text-base-content/80' },
               'A utility to prevent network spam by only sending state updates when they exceed certain thresholds. This helps optimize network traffic in your game.'
-            ),
-            button(
-              {
-                class: 'btn btn-outline',
-                onclick: (e: Event) => {
-                  const btn = e.target as HTMLButtonElement
-                  navigator.clipboard.writeText(stateChangeDetector)
-                  btn.textContent = 'Copied!'
-                  setTimeout(() => {
-                    btn.textContent = 'Copy State Change Detector'
-                  }, 2000)
-                },
-              },
-              'Copy State Change Detector'
             ),
             div(
               { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px]' },
@@ -365,16 +220,18 @@ const Dashboard = () =>
       { class: 'mb-8' },
       h1(
         { class: 'text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text' },
-        () => `Room: ${appState.roomName}`
+        () => `Room: ${appState.roomName.val}`
       )
     ),
-    TabNav(),
+    TabNav(appState),
     DashboardContent()
   )
 
 // Main app
 const App = () =>
-  div({ id: 'app' }, () => (appState.currentView === 'home' ? div(Hero(), RoomCreator(), Features()) : Dashboard()))
+  div({ id: 'app' }, () =>
+    appState.currentView.val === 'home' ? div(Hero(), RoomCreator({ appState }), Features()) : Dashboard()
+  )
 
 // Initialize the app
 van.add(document.body, App())
@@ -383,9 +240,9 @@ van.add(document.body, App())
 const urlParams = new URLSearchParams(window.location.search)
 const roomFromUrl = urlParams.get('room')
 if (roomFromUrl) {
-  appState.roomName = roomFromUrl
+  appState.roomName.val = roomFromUrl
   validateRoomName(roomFromUrl)
-  if (appState.isValid) {
-    appState.currentView = 'dashboard'
+  if (appState.isValid.val) {
+    appState.currentView.val = 'dashboard'
   }
 }
