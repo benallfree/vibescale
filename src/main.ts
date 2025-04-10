@@ -42,7 +42,7 @@ const appContainer = div(
     {
       class: () => (appState.currentView.val === 'home' ? '' : 'mt-16'),
     },
-    [() => (appState.currentView.val !== 'home' ? Navbar({ router }) : null), div({ id: 'content' })]
+    [() => (appState.currentView.val !== 'home' ? Navbar({ router }) : ''), div({ id: 'content' })]
   )
 )
 document.body.appendChild(appContainer)
