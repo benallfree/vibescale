@@ -15,21 +15,24 @@ alwaysApply: true
 
 ## Directory Structure
 * All code lives in the `/src` directory with the following organization:
-  - `/src/game` - Core game logic and Three.js implementation
-  - `/src/server` - Cloudflare Worker and Durable Objects implementation
-  - `/src/ui` - User interface components
-  - `/src/controls` - Game control handlers
-  - `/src/types` - TypeScript type definitions
-  - `/src/utils` - Utility functions
-  - `/src/styles` - Global styles and Tailwind/DaisyUI configuration
-  - `/src/config` - Application configuration
-* Tailwind/DaisyUI is available in [styles.css](mdc:src/styles/styles.css).
-* The project uses Vite-Cloudflare integration for unified client/server development.
+  - `/src/server` - Server implementation including VibescaleServer and index
+  - `/src/ui` - User interface components (Dashboard, Navbar, TabNav, etc.)
+  - `/src/utils` - Utility functions (currently contains prism utilities)
+  - `/src/styles` - Global styles and CSS configuration
+  - `/src/templates` - Template files and network-related functionality
+* Core files in root `/src`:
+  - `main.ts` - Application entry point
+  - `state.ts` - State management
+  - `router.ts` - Application routing
+* Tailwind/DaisyUI is available in [styles.css](src/styles/styles.css)
+* The project uses Vite-Cloudflare integration for unified client/server development
 
 ## Styling Guidelines
 * Avoid inline styles and use Tailwind/Daisy styling or add styles to custom local CSS files that sit with the component.
 * Use the provided Tailwind/DaisyUI classes for consistent styling.
 * Create component-specific CSS files when needed, co-located with the component.
+* Global styles are maintained in `/src/styles/styles.css`
+* Prism-specific styles are in `/src/styles/prism.css`
 
 ## Code Quality
 * Practice aggressive separation of concerns.
