@@ -41,6 +41,7 @@
     "daisyui": "^5.0.17",
     "itty-router": "^5.0.18",
     "marked": "^15.0.8",
+    "navigo": "^8.11.1",
     "prettier": "^3.5.3",
     "prettier-plugin-organize-imports": "^4.1.0",
     "prismjs": "^1.30.0",

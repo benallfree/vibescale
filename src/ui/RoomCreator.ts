@@ -75,12 +75,8 @@ export const RoomCreator = ({ appState }: RoomCreatorProps) => {
                     `btn btn-primary hover:brightness-110 transition-all duration-200 px-6 mt-4 ${!appState.isValid.val ? 'btn-disabled' : ''}`,
                   onclick: () => {
                     if (!appState.isValid.val) return
-                    // Update URL with room parameter
-                    const url = new URL(window.location.href)
-                    url.searchParams.set('room', appState.roomName.val)
-                    window.history.pushState({}, '', url)
-                    // Update view state to dashboard
-                    appState.currentView.val = 'dashboard'
+                    // Use router navigation
+                    window.location.href = `/${appState.roomName.val}`
                   },
                 },
                 span({ class: 'mr-1' }, '＋'),

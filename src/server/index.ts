@@ -37,7 +37,7 @@ const worker = {
       'Access-Control-Allow-Headers': 'Content-Type',
     }
 
-    return new Response('Vibeverse is healthy. Try /<room-name>', { status: 200, headers: corsHeaders })
+    return new Response('Vibeverse is healthy. Try /<room-name>', { status: 404, headers: corsHeaders })
   },
 }
 
