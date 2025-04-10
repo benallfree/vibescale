@@ -22,7 +22,7 @@ import './styles/prism.css'
 const { div } = van.tags
 
 // Initialize the router first
-const router = initRouter(appState, {
+const router = initRouter({
   instructions,
   networkTypes,
   stateChangeDetector,

@@ -1,20 +1,7 @@
 {
-  "name": "vibescale",
-  "version": "2.0.1",
+  "name": "vibescale-root",
+  "private": true,
   "type": "module",
-  "description": "An MMO server for building multiplayer web games using Three.js, featuring real-time WebSocket networking, Cloudflare edge deployment, and Durable Objects for game state management",
-  "keywords": [
-    "threejs",
-    "multiplayer",
-    "game",
-    "cloudflare",
-    "durable-objects",
-    "websocket",
-    "typescript",
-    "vite",
-    "edge-computing",
-    "real-time"
-  ],
   "author": {
     "name": "benallfree",
     "url": "https://x.com/benallfree"
@@ -24,37 +11,10 @@
     "type": "git",
     "url": "https://github.com/benallfree/vibescale"
   },
-  "scripts": {
-    "types": "wrangler types",
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "deploy": "wrangler deploy",
-    "ship": "bun run build && bun run deploy"
-  },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.0.4",
-    "@tailwindcss/typography": "^0.5.16",
-    "@tailwindcss/vite": "^4.1.3",
-    "@types/prismjs": "^1.26.5",
-    "@types/three": "^0.175.0",
-    "daisyui": "^5.0.17",
-    "itty-router": "^5.0.18",
-    "marked": "^15.0.8",
-    "navigo": "^8.11.1",
     "prettier": "^3.5.3",
     "prettier-plugin-organize-imports": "^4.1.0",
-    "prismjs": "^1.30.0",
-    "tailwindcss": "^4.1.3",
-    "three": "^0.175.0",
-    "typescript": "^5.8.3",
-    "vanjs-core": "^1.5.3",
-    "vanjs-ext": "^0.6.2",
-    "vite": "^6.2.5",
-    "vite-imagetools": "^7.0.5",
-    "vite-plugin-ejs": "^1.7.0",
-    "vite-plugin-image-optimizer": "^1.1.8",
-    "wrangler": "^4.9.1"
+    "typescript": "^5.8.3"
   },
   "prettier": {
     "singleQuote": true,
@@ -66,5 +26,9 @@
     "plugins": [
       "prettier-plugin-organize-imports"
     ]
-  }
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ]
 }

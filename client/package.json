@@ -1,0 +1,53 @@
+{
+  "name": "vibescale",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A lightweight TypeScript client for building multiplayer games with Vibescale",
+  "keywords": [
+    "threejs",
+    "multiplayer",
+    "game",
+    "cloudflare",
+    "durable-objects",
+    "websocket",
+    "typescript",
+    "real-time"
+  ],
+  "author": {
+    "name": "benallfree",
+    "url": "https://x.com/benallfree"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benallfree/vibescale"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tsup": "^8.0.2",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

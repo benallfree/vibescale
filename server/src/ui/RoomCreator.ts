@@ -1,23 +1,16 @@
-import van, { State } from 'vanjs-core'
+import van from 'vanjs-core'
+import { appState } from '../state'
 
 const { div, section, h1, p, label, span, input, button } = van.tags
 
-interface RoomCreatorProps {
-  appState: {
-    roomName: State<string>
-    isValid: State<boolean>
-    currentView: State<string>
-  }
-}
-
 // Validation function
-const validateRoomName = (value: string, appState: RoomCreatorProps['appState']) => {
+const validateRoomName = (value: string) => {
   const isValid = value.length > 0 && /^[a-zA-Z0-9-]+$/.test(value)
   appState.isValid.val = isValid
   return isValid
 }
 
-export const RoomCreator = ({ appState }: RoomCreatorProps) => {
+export const RoomCreator = () => {
   const validationIndicator = () =>
     div(
       {
@@ -64,7 +57,7 @@ export const RoomCreator = ({ appState }: RoomCreatorProps) => {
                   const input = e.target as HTMLInputElement
                   input.value = input.value.replace(/[^a-zA-Z0-9-]/g, '')
                   appState.roomName.val = input.value
-                  validateRoomName(input.value, appState)
+                  validateRoomName(input.value)
                 },
               }),
               validationIndicator(),

@@ -1,19 +1,12 @@
 import Navigo from 'navigo'
-import van, { State } from 'vanjs-core'
+import van from 'vanjs-core'
+import { appState } from './state'
 import { Dashboard } from './ui/Dashboard'
 import { Features } from './ui/Features'
 import { Hero } from './ui/Hero'
 import { RoomCreator } from './ui/RoomCreator'
 
 const { div, h1, p } = van.tags
-
-// App state type
-export interface AppState {
-  roomName: State<string>
-  isValid: State<boolean>
-  currentView: State<string>
-  activeTab: State<string>
-}
 
 interface RouteData {
   room?: string
@@ -37,7 +30,7 @@ const NotFoundPage = () =>
     )
   )
 
-export const initRouter = (appState: AppState, templates: any) => {
+export const initRouter = (templates: any) => {
   const router = new Navigo('/', {
     strategy: 'ONE',
     linksSelector: '[data-navigo]',
@@ -56,7 +49,7 @@ export const initRouter = (appState: AppState, templates: any) => {
     appState.currentView.val = 'home'
     appState.roomName.val = ''
     appState.isValid.val = false
-    renderView(div(Hero(), RoomCreator({ appState }), Features()))
+    renderView(div(Hero(), RoomCreator(), Features()))
   })
 
   // Room dashboard route
@@ -70,7 +63,7 @@ export const initRouter = (appState: AppState, templates: any) => {
     appState.isValid.val = true
     appState.currentView.val = 'dashboard'
     appState.activeTab.val = 'overview'
-    renderView(Dashboard({ appState, templates, router }))
+    renderView(Dashboard({ templates }))
   })
 
   // RAG route
@@ -84,7 +77,7 @@ export const initRouter = (appState: AppState, templates: any) => {
     appState.isValid.val = true
     appState.currentView.val = 'dashboard'
     appState.activeTab.val = 'rag'
-    renderView(Dashboard({ appState, templates, router }))
+    renderView(Dashboard({ templates }))
   })
 
   // Debug route
@@ -98,7 +91,7 @@ export const initRouter = (appState: AppState, templates: any) => {
     appState.isValid.val = true
     appState.currentView.val = 'dashboard'
     appState.activeTab.val = 'debug'
-    renderView(Dashboard({ appState, templates, router }))
+    renderView(Dashboard({ templates }))
   })
 
   // 404 route
