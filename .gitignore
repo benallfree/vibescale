@@ -174,5 +174,4 @@ dist
 # Finder (MacOS) folder config
 .DS_Store
 .wrangler
-client/.env.production
 .local

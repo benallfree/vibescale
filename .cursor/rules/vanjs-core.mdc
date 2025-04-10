@@ -1,0 +1,252 @@
+---
+description: Whenever vanjs is mentioned
+globs: 
+alwaysApply: false
+---
+# VanJS Core Documentation
+
+## Core API Structure
+
+```javascript
+const van = {
+  tags: {}, // HTML/SVG tag functions
+  add: (dom, ...children) => dom, // Add children to DOM element
+  state: (initVal) => State, // Create reactive state
+  derive: (f) => State, // Create derived state
+  hydrate: (dom, f) => void // Hydrate SSR components
+}
+```
+
+## Key Concepts
+
+### 1. DOM Composition
+
+- Tag functions create DOM elements directly (no virtual DOM)
+- Elements can have properties and child nodes
+- Supports both HTML and SVG elements via namespace
+
+### 2. State Management
+
+- State objects represent mutable values
+- States have a .val property for getting/setting
+- Derived states update automatically based on dependencies
+- State bindings update DOM when state changes
+
+### 3. State Binding Types
+
+- Property binding: Bind state to element property
+- Child binding: Bind state as child node
+- Derived binding: Complex bindings with computation
+
+## Core APIs
+
+### van.tags
+
+- Creates DOM elements
+- Parameters: [props], ...children
+- Returns: DOM Element
+- Props can be primitive values or state objects
+
+### van.state(initVal)
+
+- Creates reactive state
+- Parameters: initial value
+- Returns: State object with .val property
+
+### van.derive(f)
+
+- Creates derived state
+- Parameters: derivation function
+- Returns: State object that auto-updates
+
+### van.add(dom, ...children)
+
+- Adds children to DOM element
+- Parameters: target DOM, child nodes
+- Returns: target DOM element
+
+### van.hydrate(dom, f)
+
+- Hydrates SSR components with reactivity
+- Parameters:
+  - dom: Existing SSR DOM node
+  - f: Function returning hydrated component
+- Returns: undefined
+- Example:
+
+```js
+van.hydrate(document.getElementById('app'), (dom) =>
+  Counter({
+    init: Number(dom.getAttribute('data-count')),
+  })
+)
+```
+
+## DOM Implementation Details
+
+### Namespace Support
+
+```js
+// Create elements with custom namespace
+const { circle, path, svg } = van.tags('http://www.w3.org/2000/svg')
+const { math, mi, mn } = van.tags('http://www.w3.org/1998/Math/MathML')
+```
+
+### DOM Attributes vs Properties
+
+- Properties set when settable property exists on element
+- Attributes set when no settable property exists
+- Example: input.value vs div.data-index
+- Readonly properties set via setAttribute
+
+## Advanced State Features
+
+### State Derivation Behavior
+
+- Since v1.5.0, derivations execute asynchronously
+- Scheduled for next event cycle
+- Example:
+
+```js
+const a = van.state(1)
+const b = van.derive(() => a.val * 2)
+a.val = 2
+console.log(b.val) // Still 2
+setTimeout(() => console.log(b.val), 0) // Will be 4
+```
+
+### State Dependencies
+
+- Dependencies tracked automatically
+- Only updates when used dependencies change
+- Conditional dependencies supported
+- Example:
+
+```js
+// Only depends on a and b when condition is true
+// Only depends on c and d when condition is false
+;() => (condition ? a.val + b.val : c.val + d.val)
+```
+
+### Raw Value Access
+
+- rawVal property to peek without registering dependency
+- Useful for optimizing unnecessary updates
+- Example:
+
+```js
+van.derive(() => a.rawVal + b.val) // Only updates on b changes
+```
+
+## Component Patterns
+
+### Function Components
+
+- Pure JavaScript functions
+- No transpilation needed
+- Direct DOM manipulation possible
+- Example:
+
+```js
+const Counter = () => {
+  const count = van.state(0)
+  return div(count, button({ onclick: () => ++count.val }, '+'))
+}
+```
+
+### Error Prevention
+
+- Debug version available (vanjs-core/debug)
+- Throws errors for invalid state values
+- Validates DOM node connections
+- Helps catch common mistakes early
+
+## Implementation Details
+
+### 1. State Rules
+
+- State values cannot be DOM nodes
+- State values cannot be other states
+- Avoid mutating state.val objects directly
+
+### 2. Garbage Collection
+
+- Bindings to disconnected DOM nodes are removed
+- GC triggered periodically and before renders
+- Derived states inside bindings are GC'd when parent disconnected
+
+### 3. SSR/Hydration
+
+- Server renders static HTML
+- Client hydrates with van.hydrate()
+- State preserved during hydration
+- Components can be shared between server/client
+
+### 4. Performance Optimization
+
+- Use granular states over large state objects
+- Minimize DOM update scope in bindings
+- Leverage stateful binding for complex updates
+- Conditional bindings only update when dependencies change
+
+## State Binding Details
+
+### State-Derived Properties
+
+- Can bind state to element properties using functions
+- Function is called whenever dependencies change
+- For event handlers, must wrap with van.derive()
+- Example:
+
+```js
+div({ style: () => `color: ${state.val}` })
+```
+
+### State-Derived Children
+
+- Can bind state to child nodes using functions
+- Function can return primitive value or DOM node
+- Cannot return array of elements (wrap in container)
+- Example:
+
+```js
+div(() => (state.val > 0 ? span('Positive') : span('Negative')))
+```
+
+### Stateful Binding
+
+- Can mutate existing DOM instead of recreating
+- Useful for optimizing complex updates
+- Binding function receives current DOM node
+- Can return existing node or create new one
+
+## Server-Side Rendering
+
+### SSR Support
+
+- Use mini-van-plate package for server
+- Components can be shared between client/server
+- Hydration via van.hydrate() on client
+- State preserved during hydration
+
+### Hydration API
+
+```js
+van.hydrate(dom, f)
+// dom: Existing SSR DOM node
+// f: Function returning hydrated component
+// Returns undefined
+```
+
+## Event Handling
+
+### Event Handlers
+
+- Attach via on\* properties (onclick, oninput, etc)
+- Can be static functions or state-derived
+- State-derived handlers must use van.derive()
+- Example:
+
+```
+
+```

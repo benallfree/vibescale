@@ -1,31 +1,60 @@
 {
-  "name": "vibecheck-root",
-  "private": true,
+  "name": "goodvibes",
+  "version": "2.0.1",
+  "type": "module",
+  "description": "A starter kit for building multiplayer web games using Three.js, featuring real-time WebSocket networking, Cloudflare edge deployment, and Durable Objects for game state management",
+  "keywords": [
+    "threejs",
+    "multiplayer",
+    "game",
+    "cloudflare",
+    "durable-objects",
+    "websocket",
+    "typescript",
+    "vite",
+    "edge-computing",
+    "real-time"
+  ],
+  "author": {
+    "name": "benallfree",
+    "url": "https://x.com/benallfree"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benallfree/goodvibes"
+  },
   "scripts": {
-    "dev": "concurrently 'bun:dev:*'",
-    "dev:client": "bun run --cwd client dev",
-    "dev:server": "bun run --cwd server dev",
-    "build": "concurrently 'bun:build:*'",
-    "build:client": "bun run --cwd client build",
-    "build:server": "bun run --cwd server build",
-    "deploy": "concurrently 'bun:deploy:*'",
-    "deploy:client": "bun run --cwd client deploy",
-    "deploy:server": "bun run --cwd server deploy",
-    "ship": "concurrently 'bun:ship:*'",
-    "ship:client": "bun run --cwd client ship",
-    "ship:server": "bun run --cwd server ship"
+    "types": "wrangler types",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy": "wrangler deploy",
+    "ship": "bun run build && bun run deploy"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.8",
-    "concurrently": "^9.1.2",
+    "@cloudflare/vite-plugin": "^1.0.4",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tailwindcss/vite": "^4.1.3",
+    "@types/prismjs": "^1.26.5",
+    "@types/three": "^0.175.0",
+    "daisyui": "^5.0.17",
+    "itty-router": "^5.0.18",
+    "marked": "^15.0.8",
     "prettier": "^3.5.3",
     "prettier-plugin-organize-imports": "^4.1.0",
-    "typescript": "^5.8.2"
+    "prismjs": "^1.30.0",
+    "tailwindcss": "^4.1.3",
+    "three": "^0.175.0",
+    "typescript": "^5.8.3",
+    "vanjs-core": "^1.5.3",
+    "vanjs-ext": "^0.6.2",
+    "vite": "^6.2.5",
+    "vite-imagetools": "^7.0.5",
+    "vite-plugin-ejs": "^1.7.0",
+    "vite-plugin-image-optimizer": "^1.1.8",
+    "wrangler": "^4.9.1"
   },
-  "workspaces": [
-    "client",
-    "server"
-  ],
   "prettier": {
     "singleQuote": true,
     "semi": false,

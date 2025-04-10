@@ -1,0 +1,19 @@
+name = "vibescale"
+compatibility_date = "2025-04-04"
+main = "./src/server/index.ts"
+
+[durable_objects]
+bindings = [
+  { class_name = "VibescaleServer", name = "VIBESCALE" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = [ "VibescaleServer" ]
+
+[observability]
+enabled = true
+
+[assets]
+  directory = "./dist"
+  binding = "ASSETS"

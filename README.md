@@ -17,51 +17,98 @@ https://github.com/user-attachments/assets/5bf9fdb7-186a-45ea-84f2-ea92c0aa0659
 
 ## Getting Started
 
+### Prerequisites
+
+- [Bun](https://bun.sh) (Latest version)
+- Node.js 18+ (for some development tools)
+- A Cloudflare account (for deployment)
+
 ### Development
 
+1. Clone the repository:
+
 ```bash
-# Install dependencies
-bun i
+bunx tiged benallfree/goodvibes
+cd goodvibes
+```
 
-# Start client development server
-bun run --cwd client dev
+2. Install dependencies:
 
-# Start server development
-bun run --cwd server dev
+```bash
+bun install
+```
+
+3. Start the development server:
+
+```bash
+bun run dev
+```
+
+4. Open your browser and navigate to `http://localhost:5173`
+
+### Building for Production
+
+```bash
+bun run build
 ```
 
 ### Deployment
 
-```bash
-# Build the project
-bun run build
+Deploy to Cloudflare:
 
-# Deploy to Cloudflare
+```bash
+bun run build
 bun run deploy
 ```
 
-## Testing
+Or use the all-in-one command:
 
-### MMO Testing Made Easy
-
-Test your multiplayer game interactions easily using [VibeCheck](https://vibecheck.benallfree.com) - a powerful testing tool that allows you to run multiple game clients simultaneously in iframes within a single browser window. This makes it simple to observe and debug real-time interactions between different players in your MMO game.
+```bash
+bun run ship
+```
 
 ## Project Structure
 
 ```
-goodvibes/
-├── client/         # Frontend application
-├── server/         # Cloudflare Workers + Durable Objects
-└── shared/         # Shared types and utilities
+src/
+├── game/      # Core game logic and Three.js implementation
+├── server/    # Cloudflare Worker and Durable Objects
+├── ui/        # User interface components
+├── controls/  # Game control handlers
+├── types/     # TypeScript type definitions
+├── utils/     # Utility functions
+├── styles/    # Global styles and Tailwind/DaisyUI
+└── config/    # Application configuration
 ```
 
 ## Tech Stack
 
-- **Frontend**: Three.js, TypeScript, Vite
-- **Backend**: Cloudflare Workers, Durable Objects
-- **Package Manager**: Bun
-- **Deployment**: Cloudflare Pages
+- **Frontend**:
 
-## Documentation
+  - Three.js for 3D rendering
+  - TypeScript for type safety
+  - Vite for fast development
+  - Tailwind/DaisyUI for styling
 
-The project includes comprehensive RAG (Retrieval-Augmented Generation) rules for maintaining and extending the codebase. These rules provide guidance for implementing features and following best practices.
+- **Backend**:
+
+  - Cloudflare Workers
+  - Durable Objects for state management
+  - WebSocket for real-time communication
+
+- **Development**:
+  - Bun as package manager
+  - TypeScript for type safety
+  - Vite for build tooling
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

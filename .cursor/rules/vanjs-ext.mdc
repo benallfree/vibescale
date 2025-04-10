@@ -1,0 +1,168 @@
+---
+description: Whenever vanjs is mentioned
+globs: 
+alwaysApply: false
+---
+# VanX Technical Reference
+
+VanX is the official VanJS extension (1.2kB gzipped) providing utility functions for enhanced ergonomics and developer experience.
+
+## Installation
+
+```js
+// NPM
+npm install vanjs-ext
+
+// Import all utilities
+import * as vanX from "vanjs-ext"
+
+// Import specific functions
+import { reactive, list, replace } from "vanjs-ext"
+
+// CDN
+<script src="https://cdn.jsdelivr.net/npm/vanjs-ext@latest/dist/van-x.nomodule.min.js"></script>
+```
+
+## Core APIs
+
+### vanX.reactive
+
+Creates a reactive object where each field corresponds to a State object.
+
+```typescript
+interface ReactiveConfig {
+  // Converts object into reactive form
+  reactive<T>(obj: T): ReactiveObject<T>
+
+  // Creates calculated field
+  calc<T>(f: () => T): CalculatedField<T>
+
+  // Gets underlying State objects
+  stateFields<T>(obj: ReactiveObject<T>): StateFields<T>
+
+  // Gets raw value without registering dependency
+  raw<T>(obj: ReactiveObject<T>): T
+
+  // Marks fields as non-reactive
+  noreactive: symbol
+}
+
+// Usage
+const data = vanX.reactive({
+  name: { first: 'John', last: 'Doe' },
+  age: 30,
+  // Calculated field
+  fullName: vanX.calc(() => `${data.name.first} ${data.name.last}`),
+})
+
+// Access/modify values directly
+data.name.first = 'Jane'
+console.log(data.name.first) // "Jane"
+
+// Get underlying State
+const states = vanX.stateFields(data)
+```
+
+### vanX.list
+
+Reactive list component with optimized rendering.
+
+```typescript
+interface ListConfig {
+  list<T>(
+    container: TagFunction,
+    items: T[] | CalculatedField<T[]>,
+    renderer: (item: T, deleter?: () => void) => Node
+  ): Node
+}
+
+// Usage
+vanX.list(ul, items, (item, deleter) => li(item.text, button({ onclick: deleter }, 'Delete')))
+```
+
+### vanX.replace
+
+Smart diffing and batch updates for reactive objects.
+
+```typescript
+interface ReplaceConfig {
+  replace<T>(obj: ReactiveObject<T>, replacement: T): void
+}
+
+// Usage
+// Only updates changed fields
+vanX.replace(data, {
+  name: { first: 'Jane', last: 'Doe' },
+  age: 31,
+})
+```
+
+### vanX.compact
+
+Serialization helper that removes array holes.
+
+```typescript
+interface CompactConfig {
+  compact<T>(obj: ReactiveObject<T>): T
+}
+
+// Usage
+const cleaned = vanX.compact(data)
+localStorage.setItem('state', JSON.stringify(cleaned))
+```
+
+## Common Patterns
+
+### Global App State
+
+```js
+const appState = vanX.reactive({
+  user: {
+    name: '',
+    preferences: {},
+  },
+  items: [],
+  ui: {
+    theme: 'light',
+    sidebar: true,
+  },
+})
+
+// Persist state
+van.derive(() => localStorage.setItem('app', JSON.stringify(vanX.compact(appState))))
+```
+
+### Server-Driven UI
+
+```js
+const app = vanX.reactive({
+  data: {},
+  ui: {},
+})
+
+// Smart diff/update on server push
+async function handleServerUpdate(newState) {
+  vanX.replace(app, newState)
+}
+```
+
+### Computed Properties
+
+```js
+const data = vanX.reactive({
+  items: [],
+})
+
+const computed = vanX.reactive({
+  total: vanX.calc(() => data.items.length),
+  filtered: vanX.calc(() => data.items.filter((i) => !i.done)),
+})
+```
+
+## Best Practices
+
+1. Keep calculated fields in separate reactive objects
+2. Use vanX.replace for object updates instead of direct assignment
+3. Wrap sub-field access in binding functions
+4. Don't alias reactive sub-fields into variables
+5. Don't create State fields inside reactive objects

@@ -1,0 +1,76 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# GoodVibes Project Guidelines
+
+## Core Architecture
+* Bun is our package manager.
+* Three.js is the ONLY library allowed. Everything else must be created from scratch.
+* Absolutely no build chain other than Vite.
+* Use TypeScript everywhere.
+* Use early returns.
+* To deploy, run `bun run build && bun run deploy` from the root directory. They are set up properly.
+
+## Directory Structure
+* All code lives in the `/src` directory with the following organization:
+  - `/src/game` - Core game logic and Three.js implementation
+  - `/src/server` - Cloudflare Worker and Durable Objects implementation
+  - `/src/ui` - User interface components
+  - `/src/controls` - Game control handlers
+  - `/src/types` - TypeScript type definitions
+  - `/src/utils` - Utility functions
+  - `/src/styles` - Global styles and Tailwind/DaisyUI configuration
+  - `/src/config` - Application configuration
+* Tailwind/DaisyUI is available in [styles.css](mdc:src/styles/styles.css).
+* The project uses Vite-Cloudflare integration for unified client/server development.
+
+## Styling Guidelines
+* Avoid inline styles and use Tailwind/Daisy styling or add styles to custom local CSS files that sit with the component.
+* Use the provided Tailwind/DaisyUI classes for consistent styling.
+* Create component-specific CSS files when needed, co-located with the component.
+
+## Code Quality
+* Practice aggressive separation of concerns.
+* After each task is done, please review all the code and recommend the most important single refactoring that is both helpful and minimal.
+* Always discuss a plan first and wait for approval before coding a solution. Two separate interactions minimum.
+* Follow the Prettier configuration in package.json for consistent code formatting.
+* Use TypeScript types for all variables, functions, and components.
+* Implement proper error handling and type checking.
+
+## Build and Development
+* Use `bun run dev` for local development.
+* Use `bun run build` for production builds.
+* Use `bun run deploy` to deploy to Cloudflare.
+* Use `bun run ship` for a complete build and deploy.
+* The project uses Vite with the following plugins:
+  - @cloudflare/vite-plugin
+  - @tailwindcss/vite
+  - vite-imagetools
+  - vite-plugin-ejs
+  - vite-plugin-image-optimizer
+
+## Performance Guidelines
+* Optimize assets using the provided image optimization plugins.
+* Implement proper code splitting and lazy loading.
+* Minimize bundle size by avoiding unnecessary dependencies.
+* Use proper caching strategies for static assets.
+
+## Testing and Quality Assurance
+* Implement proper error boundaries.
+* Add appropriate logging for debugging.
+* Test edge cases and error scenarios.
+* Ensure proper cleanup in useEffect hooks and event listeners.
+
+## Security Considerations
+* Never expose sensitive information in client-side code.
+* Implement proper input validation.
+* Use appropriate CORS policies.
+* Follow security best practices for WebSocket connections.
+
+## Documentation
+* Document complex functions and components.
+* Maintain clear and concise commit messages.
+* Update README.md with new features and changes.
+* Document any breaking changes or major updates.
