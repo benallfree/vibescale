@@ -1,7 +1,7 @@
 import van from 'vanjs-core'
 import * as vanX from 'vanjs-ext'
 
-const { div, header, section, h1, p, input, button, span, label, nav, ul, li } = van.tags
+const { div, header, section, h1, h2, p, input, button, span, label, nav, ul, li } = van.tags
 
 // App state
 const appState = vanX.reactive({
@@ -159,10 +159,32 @@ const TabNav = () =>
   )
 
 const DashboardContent = () => {
+  const generateUrls = (roomName: string) => ({
+    http: `https://vibescale.benallfree.com/${roomName}`,
+    ws: `wss://vibescale.benallfree.com/${roomName}`,
+  })
+
   const content = () => {
     switch (appState.activeTab) {
       case 'overview':
-        return div({ class: 'p-4' }, 'Overview Content')
+        const urls = generateUrls(appState.roomName)
+        return div(
+          { class: 'p-8 space-y-6' },
+          h2({ class: 'text-2xl font-bold mb-6' }, 'Endpoints'),
+          div(
+            { class: 'space-y-4' },
+            div(
+              { class: 'space-y-2' },
+              div({ class: 'font-semibold text-lg' }, 'REST Endpoint'),
+              div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm break-all' }, urls.http)
+            ),
+            div(
+              { class: 'space-y-2' },
+              div({ class: 'font-semibold text-lg' }, 'WebSocket Endpoint'),
+              div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm break-all' }, urls.ws)
+            )
+          )
+        )
       case 'rag':
         return div({ class: 'p-4' }, 'RAG Content')
       case 'debug':
