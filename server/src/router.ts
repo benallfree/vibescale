@@ -1,4 +1,4 @@
-import Navigo from 'navigo'
+import Navigo, { Match } from 'navigo'
 import van from 'vanjs-core'
 import { appState } from './state'
 import { Dashboard } from './ui/Dashboard'
@@ -53,45 +53,60 @@ export const initRouter = (templates: any) => {
   })
 
   // Room dashboard route
-  router.on('/:room', ({ data }: { data: RouteData }) => {
-    const roomName = data?.room
-    if (!roomName || !/^[a-zA-Z0-9-]+$/.test(roomName)) {
-      router.navigate('/404')
-      return
-    }
-    appState.roomName.val = roomName
-    appState.isValid.val = true
-    appState.currentView.val = 'dashboard'
-    appState.activeTab.val = 'overview'
-    renderView(Dashboard({ templates }))
+  router.on({
+    '/:room': {
+      as: 'room',
+      uses: (match: Match) => {
+        const roomName = match?.data?.room
+        if (!roomName || !/^[a-zA-Z0-9-]+$/.test(roomName)) {
+          router.navigate('/404')
+          return
+        }
+        appState.roomName.val = roomName
+        appState.isValid.val = true
+        appState.currentView.val = 'dashboard'
+        appState.activeTab.val = 'overview'
+        renderView(Dashboard({ templates }))
+      },
+    },
   })
 
   // RAG route
-  router.on('/:room/rag', ({ data }: { data: RouteData }) => {
-    const roomName = data?.room
-    if (!roomName || !/^[a-zA-Z0-9-]+$/.test(roomName)) {
-      router.navigate('/404')
-      return
-    }
-    appState.roomName.val = roomName
-    appState.isValid.val = true
-    appState.currentView.val = 'dashboard'
-    appState.activeTab.val = 'rag'
-    renderView(Dashboard({ templates }))
+  router.on({
+    '/:room/rag': {
+      as: 'rag',
+      uses: (match: Match) => {
+        const roomName = match?.data?.room
+        if (!roomName || !/^[a-zA-Z0-9-]+$/.test(roomName)) {
+          router.navigate('/404')
+          return
+        }
+        appState.roomName.val = roomName
+        appState.isValid.val = true
+        appState.currentView.val = 'dashboard'
+        appState.activeTab.val = 'rag'
+        renderView(Dashboard({ templates }))
+      },
+    },
   })
 
   // Debug route
-  router.on('/:room/debug', ({ data }: { data: RouteData }) => {
-    const roomName = data?.room
-    if (!roomName || !/^[a-zA-Z0-9-]+$/.test(roomName)) {
-      router.navigate('/404')
-      return
-    }
-    appState.roomName.val = roomName
-    appState.isValid.val = true
-    appState.currentView.val = 'dashboard'
-    appState.activeTab.val = 'debug'
-    renderView(Dashboard({ templates }))
+  router.on({
+    '/:room/debug': {
+      as: 'debug',
+      uses: (match: Match) => {
+        const roomName = match?.data?.room
+        if (!roomName || !/^[a-zA-Z0-9-]+$/.test(roomName)) {
+          router.navigate('/404')
+          return
+        }
+        appState.roomName.val = roomName
+        appState.isValid.val = true
+        appState.currentView.val = 'dashboard'
+        appState.activeTab.val = 'debug'
+        renderView(Dashboard({ templates }))
+      },
+    },
   })
 
   // 404 route
