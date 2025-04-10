@@ -1,8 +1,8 @@
 {
-  "name": "goodvibes",
+  "name": "vibescale",
   "version": "2.0.1",
   "type": "module",
-  "description": "A starter kit for building multiplayer web games using Three.js, featuring real-time WebSocket networking, Cloudflare edge deployment, and Durable Objects for game state management",
+  "description": "An MMO server for building multiplayer web games using Three.js, featuring real-time WebSocket networking, Cloudflare edge deployment, and Durable Objects for game state management",
   "keywords": [
     "threejs",
     "multiplayer",
@@ -22,7 +22,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/benallfree/goodvibes"
+    "url": "https://github.com/benallfree/vibescale"
   },
   "scripts": {
     "types": "wrangler types",

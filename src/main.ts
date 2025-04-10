@@ -2,6 +2,7 @@ import van from 'vanjs-core'
 
 // Import components
 import { initRouter } from './router'
+import { Navbar } from './ui/Navbar'
 
 // Import templates
 import instructions from './templates/instructions.md?raw'
@@ -27,8 +28,16 @@ const appState = {
   activeTab: van.state('overview'),
 }
 
-// Create app container
-const appContainer = div({ id: 'app' })
+// Create app container with conditional navbar
+const appContainer = div(
+  { id: 'app' },
+  div(
+    {
+      class: () => (appState.currentView.val === 'home' ? '' : 'mt-16'),
+    },
+    [() => (appState.currentView.val !== 'home' ? Navbar() : ''), div({ id: 'content' })]
+  )
+)
 document.body.appendChild(appContainer)
 
 // Initialize the router

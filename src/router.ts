@@ -41,10 +41,10 @@ export const initRouter = (appState: AppState, templates: any) => {
   const router = new Navigo('/', { strategy: 'ONE' })
 
   const renderView = (content: HTMLElement) => {
-    const app = document.getElementById('app')
-    if (app) {
-      app.innerHTML = ''
-      app.appendChild(content)
+    const contentContainer = document.getElementById('content')
+    if (contentContainer) {
+      contentContainer.innerHTML = ''
+      contentContainer.appendChild(content)
     }
   }
 
