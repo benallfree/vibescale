@@ -14,25 +14,35 @@ alwaysApply: true
 * To deploy, run `bun run build && bun run deploy` from the root directory. They are set up properly.
 
 ## Directory Structure
-* All code lives in the `/src` directory with the following organization:
-  - `/src/server` - Server implementation including VibescaleServer and index
-  - `/src/ui` - User interface components (Dashboard, Navbar, TabNav, etc.)
-  - `/src/utils` - Utility functions (currently contains prism utilities)
-  - `/src/styles` - Global styles and CSS configuration
-  - `/src/templates` - Template files and network-related functionality
-* Core files in root `/src`:
-  - `main.ts` - Application entry point
-  - `state.ts` - State management
-  - `router.ts` - Application routing
-* Tailwind/DaisyUI is available in [styles.css](mdc:src/styles/styles.css)
-* The project uses Vite-Cloudflare integration for unified client/server development
+* The project is now split into two main parts:
+  - `/client` - Client library implementation
+    - `/src` - Source code for the client library
+    - Package managed independently with its own package.json
+    - Uses tsup for building
+  
+  - `/server` - Main application server
+    - `/src` - Server and web application source code:
+      - `/server` - Server implementation
+      - `/ui` - User interface components
+      - `/utils` - Utility functions
+      - `/styles` - Global styles and CSS configuration
+      - `/templates` - Template files and network-related functionality
+      - `main.ts` - Application entry point
+      - `state.ts` - State management
+      - `router.ts` - Application routing
+    - `/public` - Static public assets
+    - `/assets` - Application assets
+    - Uses Wrangler for Cloudflare Workers deployment
+
+* Tailwind/DaisyUI is available in the server's styles directory
+* The project uses Vite-Cloudflare integration for unified client/server development in the server package
 
 ## Styling Guidelines
 * Avoid inline styles and use Tailwind/Daisy styling or add styles to custom local CSS files that sit with the component.
 * Use the provided Tailwind/DaisyUI classes for consistent styling.
 * Create component-specific CSS files when needed, co-located with the component.
-* Global styles are maintained in `/src/styles/styles.css`
-* Prism-specific styles are in `/src/styles/prism.css`
+* Global styles are maintained in `/styles/styles.css`
+* Prism-specific styles are in `/styles/prism.css`
 
 ## Code Quality
 * Practice aggressive separation of concerns.
