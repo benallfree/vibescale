@@ -38,7 +38,10 @@ const NotFoundPage = () =>
   )
 
 export const initRouter = (appState: AppState, templates: any) => {
-  const router = new Navigo('/', { strategy: 'ONE' })
+  const router = new Navigo('/', {
+    strategy: 'ONE',
+    linksSelector: '[data-navigo]',
+  })
 
   const renderView = (content: HTMLElement) => {
     const contentContainer = document.getElementById('content')

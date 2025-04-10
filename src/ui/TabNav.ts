@@ -1,28 +1,9 @@
-import Navigo from 'navigo'
 import van from 'vanjs-core'
-import * as vanX from 'vanjs-ext'
+import { appState } from '../state'
 
-const { nav, ul, li, button } = van.tags
+const { nav, ul, li, a } = van.tags
 
-// Import the app state type from a new types file (we'll create this later)
-interface AppState {
-  activeTab: string
-  roomName: string
-  [key: string]: any
-}
-
-interface TabNavProps {
-  appState: vanX.StateOf<AppState>
-  router: Navigo
-}
-
-export const TabNav = ({ appState, router }: TabNavProps) => {
-  const handleTabClick = (path: string) => {
-    const baseUrl = `/${appState.roomName.val}`
-    const targetUrl = path ? `${baseUrl}${path}` : baseUrl
-    router.navigate(targetUrl)
-  }
-
+export const TabNav = () => {
   return nav(
     { class: 'tabs tabs-boxed bg-base-200 p-2 mb-6' },
     ul(
@@ -33,10 +14,11 @@ export const TabNav = ({ appState, router }: TabNavProps) => {
         { id: 'debug', path: '/debug' },
       ].map(({ id, path }) =>
         li(
-          button(
+          a(
             {
+              href: () => `/${appState.roomName.val}${path}`,
+              'data-navigo': true,
               class: () => `tab ${appState.activeTab.val === id ? 'tab-active' : ''}`,
-              onclick: () => handleTabClick(path),
             },
             id.charAt(0).toUpperCase() + id.slice(1)
           )

@@ -1,4 +1,3 @@
-import Navigo from 'navigo'
 import van from 'vanjs-core'
 
 const { div, nav, button, span, a } = van.tags
@@ -13,11 +12,7 @@ const navItems: NavItem[] = [
   // Intentionally empty
 ]
 
-interface NavbarProps {
-  router: Navigo
-}
-
-export const Navbar = ({ router }: NavbarProps) => {
+export const Navbar = () => {
   const isMenuOpen = van.state(false)
 
   const toggleMenu = () => {
@@ -28,19 +23,11 @@ export const Navbar = ({ router }: NavbarProps) => {
     }
   }
 
-  const handleNavClick = (e: Event, href: string) => {
-    e.preventDefault()
-    router.navigate(href)
-    if (isMenuOpen.val) {
-      toggleMenu()
-    }
-  }
-
   const renderNavItem = ({ text, href, isActive = false }: NavItem) => {
     return a(
       {
         href,
-        onclick: (e: Event) => handleNavClick(e, href),
+        'data-navigo': true,
         class: () =>
           `block px-4 py-2 text-sm md:text-base ${
             isActive ? 'text-primary font-semibold' : 'text-gray-700 hover:text-primary'
@@ -70,7 +57,7 @@ export const Navbar = ({ router }: NavbarProps) => {
                 a(
                   {
                     href: '/',
-                    onclick: (e: Event) => handleNavClick(e, '/'),
+                    'data-navigo': true,
                     class: 'text-xl font-bold text-primary',
                   },
                   'Vibescale'

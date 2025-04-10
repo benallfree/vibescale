@@ -1,5 +1,5 @@
-import Navigo from 'navigo'
-import van, { State } from 'vanjs-core'
+import van from 'vanjs-core'
+import { appState } from '../state'
 import { renderMarkdown } from '../utils/prism'
 import { ClipboardButton } from './ClipboardButton'
 import { TabNav } from './TabNav'
@@ -7,16 +7,11 @@ import { TabNav } from './TabNav'
 const { div, h1, h2, h3, p } = van.tags
 
 interface DashboardProps {
-  appState: {
-    roomName: State<string>
-    activeTab: State<string>
-  }
   templates: {
     instructions: string
     networkTypes: string
     stateChangeDetector: string
   }
-  router: Navigo
 }
 
 const generateUrls = (roomName: string) => ({
@@ -28,7 +23,7 @@ const generateRoomInstructions = (roomName: string, instructions: string): strin
   return instructions.replace(/{{roomName}}/g, roomName)
 }
 
-const DashboardContent = ({ appState, templates, router }: DashboardProps) => {
+const DashboardContent = ({ templates }: DashboardProps) => {
   const urls = generateUrls(appState.roomName.val)
   const roomInstructions = generateRoomInstructions(appState.roomName.val, templates.instructions)
 
@@ -149,7 +144,7 @@ const DashboardContent = ({ appState, templates, router }: DashboardProps) => {
   return div({ class: 'bg-base-200 rounded-lg min-h-[400px]' }, content)
 }
 
-export const Dashboard = ({ appState, templates, router }: DashboardProps) =>
+export const Dashboard = ({ templates }: DashboardProps) =>
   div(
     { class: 'container mx-auto px-4 py-8' },
     div(
@@ -159,6 +154,6 @@ export const Dashboard = ({ appState, templates, router }: DashboardProps) =>
         () => `Room: ${appState.roomName.val}`
       )
     ),
-    TabNav({ appState, router }),
-    DashboardContent({ appState, templates, router })
+    TabNav(),
+    DashboardContent({ templates })
   )

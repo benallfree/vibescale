@@ -2,6 +2,7 @@ import van from 'vanjs-core'
 
 // Import components
 import { initRouter } from './router'
+import { appState } from './state'
 import { Navbar } from './ui/Navbar'
 
 // Import templates
@@ -20,14 +21,6 @@ import './styles/prism.css'
 
 const { div } = van.tags
 
-// App state
-const appState = {
-  roomName: van.state(''),
-  isValid: van.state(false),
-  currentView: van.state('home'),
-  activeTab: van.state('overview'),
-}
-
 // Initialize the router first
 const router = initRouter(appState, {
   instructions,
@@ -42,7 +35,7 @@ const appContainer = div(
     {
       class: () => (appState.currentView.val === 'home' ? '' : 'mt-16'),
     },
-    [() => (appState.currentView.val !== 'home' ? Navbar({ router }) : ''), div({ id: 'content' })]
+    [() => (appState.currentView.val !== 'home' ? Navbar() : ''), div({ id: 'content' })]
   )
 )
 document.body.appendChild(appContainer)
