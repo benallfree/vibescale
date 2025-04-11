@@ -136,6 +136,9 @@ export const DebugPanel = () => {
             { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
             textarea({
               value: () => debugState.stateText,
+              oninput: (e) => {
+                debugState.stateText = (e.target as HTMLTextAreaElement).value
+              },
               class: 'w-full h-64 font-mono text-sm p-2 rounded',
               placeholder: 'Enter state JSON (position and rotation)...',
             }),
@@ -163,6 +166,9 @@ export const DebugPanel = () => {
             { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
             textarea({
               value: () => debugState.metadataText,
+              oninput: (e) => {
+                debugState.metadataText = (e.target as HTMLTextAreaElement).value
+              },
               class: 'w-full h-64 font-mono text-sm p-2 rounded',
               placeholder: 'Enter JSON metadata...',
             }),
@@ -185,7 +191,19 @@ export const DebugPanel = () => {
       ),
       div(
         { class: 'space-y-2' },
-        div({ class: 'font-semibold text-lg' }, 'WebSocket Wire History'),
+        div(
+          { class: 'flex justify-between items-center' },
+          div({ class: 'font-semibold text-lg' }, 'WebSocket Wire History'),
+          button(
+            {
+              onclick: () => {
+                debugState.history = []
+              },
+              class: 'btn btn-sm btn-ghost',
+            },
+            'Clear'
+          )
+        ),
         div(
           { class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' },
           pre(
