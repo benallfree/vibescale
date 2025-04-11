@@ -132,44 +132,44 @@ export const DebugPanel = () => {
       { class: 'space-y-4' },
       // URL input and connect button
       div(
-        { class: 'flex gap-2 items-center' },
-        input({
-          type: 'text',
-          class: 'input input-bordered flex-1',
-          value: debugState.url,
-          oninput: (e) => {
-            debugState.url = (e.target as HTMLInputElement).value
-          },
-        }),
-        button(
-          {
-            class: () => `btn ${debugState.connectionStatus === 'connected' ? 'btn-error' : 'btn-primary'}`,
-            onclick: () => {
-              if (debugState.connectionStatus === 'connected') {
-                debugState.room?.disconnect()
-              } else {
-                connectToRoom()
-              }
-            },
-          },
-          () => (debugState.connectionStatus === 'connected' ? 'Disconnect' : 'Connect')
-        )
-      ),
-      div(
-        { class: 'space-y-2' },
-        div({ class: 'font-semibold text-lg' }, 'Connection Status'),
-        div({ class: 'badge badge-primary' }, () => debugState.connectionStatus)
-      ),
-      div(
-        { class: 'space-y-2' },
-        div({ class: 'font-semibold text-lg' }, 'Player ID'),
+        { class: 'flex items-center gap-4' },
         div(
-          { class: 'bg-base-300 p-4 rounded-lg font-mono text-sm break-all' },
-          () => debugState.player?.id || 'Waiting for ID...'
+          { class: 'flex items-center gap-2' },
+          input({
+            type: 'text',
+            class: 'input input-bordered input-sm w-64',
+            value: debugState.url,
+            oninput: (e) => {
+              debugState.url = (e.target as HTMLInputElement).value
+            },
+          }),
+          button(
+            {
+              class: () => `btn btn-sm ${debugState.connectionStatus === 'connected' ? 'btn-error' : 'btn-primary'}`,
+              onclick: () => {
+                if (debugState.connectionStatus === 'connected') {
+                  debugState.room?.disconnect()
+                } else {
+                  connectToRoom()
+                }
+              },
+            },
+            () => (debugState.connectionStatus === 'connected' ? 'Disconnect' : 'Connect')
+          )
+        ),
+        div(
+          { class: 'flex items-center gap-2' },
+          div({ class: 'font-semibold text-sm' }, 'Status:'),
+          div({ class: 'badge badge-sm badge-primary' }, () => debugState.connectionStatus)
+        ),
+        div(
+          { class: 'flex items-center gap-2' },
+          div({ class: 'font-semibold text-sm' }, 'Player ID:'),
+          code({ class: 'bg-base-300 px-2 py-1 rounded text-xs' }, () => debugState.player?.id || 'Waiting for ID...')
         )
       ),
       div(
-        { class: 'grid grid-cols-2 gap-4' },
+        { class: 'grid grid-cols-2 gap-4 mt-4' },
         // State editor
         JSONEditor({
           value: JSON.stringify({}, null, 2),
