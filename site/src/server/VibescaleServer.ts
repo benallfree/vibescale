@@ -1,17 +1,16 @@
 import { DurableObject } from 'cloudflare:workers'
 import { text } from 'itty-router'
-import type {
-  PlayerComplete,
-  PlayerId,
-  PlayerIdMessage,
-  PlayerMetadataMessage,
-  PlayerState,
-  RoomName,
-  Vector3,
-  WebSocketMessage,
-  WsMeta,
-} from '../templates/network'
-import { hasSignificantStateChange } from '../templates/stateChangeDetector'
+import { hasSignificantStateChange } from './stateChangeDetector'
+import {
+  MessageType,
+  type Player,
+  type PlayerId,
+  type PlayerMetadataMessage,
+  type RoomName,
+  type Vector3,
+  type WebSocketMessage,
+  type WsMeta,
+} from './types'
 
 // Extend WebSocket type to include Cloudflare-specific methods
 interface CloudflareWebSocket extends WebSocket {
@@ -110,30 +109,26 @@ export class VibescaleServer extends DurableObject<Env> {
       roomName,
     })
 
-    // Send the player their ID, color, and spawn position
-    const idMessage: PlayerIdMessage = {
-      type: 'player:id',
+    const initialPlayer: Player = {
       id: playerId,
-      metadata: {
-        color,
-      },
-      state: {
-        id: playerId,
+      delta: {
         position: spawnPosition,
         rotation: { x: 0, y: 0, z: 0 },
       },
-    }
-    this.sendMessage(cloudflareWs, idMessage)
-
-    const initialPlayer: PlayerComplete = {
-      id: playerId,
-      position: spawnPosition,
-      rotation: { x: 0, y: 0, z: 0 },
-      metadata: {
+      metadata: {},
+      server: {
         color,
       },
     }
-    await this.savePlayerAtRest(playerId, initialPlayer)
+
+    // Send the player their ID, color, and spawn position
+    this.sendMessage(cloudflareWs, {
+      type: MessageType.Player,
+      player: initialPlayer,
+      isLocal: true,
+    })
+
+    await this.savePlayer(initialPlayer)
 
     this.sendInitialGameState(roomName, playerId, cloudflareWs)
 
@@ -149,29 +144,28 @@ export class VibescaleServer extends DurableObject<Env> {
       if (socket.readyState !== WebSocket.OPEN) return
       if (playerId === socket.deserializeAttachment()?.playerId) return
 
-      return this.loadPlayerAtRest(playerId).then((existingState) => {
-        if (!existingState) return
+      return this.loadPlayer(playerId).then((playerState) => {
+        if (!playerState) return
 
-        const stateUpdate: WebSocketMessage = {
-          type: 'player:state',
-          player: existingState,
-        }
-        this.sendMessage(cloudflareWs, stateUpdate)
+        this.sendMessage(cloudflareWs, {
+          type: MessageType.Player,
+          player: playerState,
+          isLocal: false,
+        })
       })
     })
   }
 
-  private async loadPlayerAtRest(playerId: PlayerId): Promise<PlayerComplete | undefined> {
-    return await this.ctx.storage.get<PlayerComplete>(`player:${playerId}`)
+  private async loadPlayer(playerId: PlayerId): Promise<Player | undefined> {
+    return await this.ctx.storage.get<Player>(`player:${playerId}`)
   }
 
-  private async savePlayerAtRest(playerId: PlayerId, playerAtRest: PlayerComplete) {
-    await this.ctx.storage.put(`player:${playerId}`, playerAtRest)
+  private async savePlayer(player: Player) {
+    await this.ctx.storage.put(`player:${player.id}`, player)
   }
 
   private sendMessage<T extends WebSocketMessage>(ws: CloudflareWebSocket, message: T) {
-    const meta = ws.deserializeAttachment()
-    const playerId = meta?.playerId
+    const playerId = ws.deserializeAttachment()?.playerId
     if (!playerId) {
       // console.log('Skipping sendMessage because player ID was not found')
       return
@@ -192,78 +186,78 @@ export class VibescaleServer extends DurableObject<Env> {
   async webSocketMessage(ws: CloudflareWebSocket, message: string) {
     const data = JSON.parse(message) as WebSocketMessage
     // console.log('Received message', message)
-    const playerId = this.ctx.getTags(ws)[0]
+    const playerId = ws.deserializeAttachment()?.playerId
     if (!playerId) {
       // console.log('Skipping webSocketMessage because player ID was not found')
       return
     }
 
     switch (data.type) {
-      case 'player:state':
+      case MessageType.PlayerDelta: {
         // console.log('player:state', data)
-        const lastState = await this.ctx.storage.get<PlayerState>(`player:${playerId}`)
-        const newState = data.player
+        const player = await this.loadPlayer(playerId)
+        if (!player) {
+          const errorMessage: WebSocketMessage = {
+            type: MessageType.Error,
+            message: `Player not found: ${playerId}`,
+          }
+          this.sendMessage(ws, errorMessage)
+          return
+        }
+
+        const nextState: Player = {
+          ...player,
+          delta: data.delta,
+        }
 
         // Skip update if no significant change using shared detector
-        if (lastState && !hasSignificantStateChange(newState)) {
+        if (!hasSignificantStateChange(nextState)) {
           return
         }
 
         // Update storage and broadcast
-        await this.ctx.storage.put(`player:${playerId}`, newState)
-        const stateUpdate: WebSocketMessage = {
-          type: 'player:state',
-          player: newState,
-        }
-        this.broadcast(stateUpdate, playerId)
+        await this.savePlayer(nextState)
+        this.broadcast(
+          {
+            type: MessageType.PlayerDelta,
+            id: playerId,
+            delta: data.delta,
+          },
+          playerId
+        )
         break
+      }
 
-      case 'player:metadata':
-        if (!data.metadata) {
-          const errorMessage: WebSocketMessage = {
-            type: 'error',
-            message: 'Missing metadata in player:metadata message',
-          }
-          this.sendMessage(ws, errorMessage)
-          return
-        }
-
+      case MessageType.PlayerMetadata:
         // Load existing player data
-        const player = await this.loadPlayerAtRest(playerId)
+        const player = await this.loadPlayer(playerId)
         if (!player) {
           const errorMessage: WebSocketMessage = {
-            type: 'error',
-            message: 'Player not found',
+            type: MessageType.Error,
+            message: `Player not found: ${playerId}`,
           }
           this.sendMessage(ws, errorMessage)
           return
-        }
-
-        // Update metadata while preserving the color
-        const updatedMetadata = {
-          ...data.metadata,
-          color: player.metadata.color, // Preserve server-assigned color
         }
 
         // Update storage
-        const updatedPlayer = {
+        await this.savePlayer({
           ...player,
-          metadata: updatedMetadata,
-        }
-        await this.savePlayerAtRest(playerId, updatedPlayer)
+          metadata: data.metadata,
+        })
 
         // Broadcast to all clients including the sender
         const metadataUpdate: PlayerMetadataMessage = {
-          type: 'player:metadata',
+          type: MessageType.PlayerMetadata,
           id: playerId,
-          metadata: updatedMetadata,
+          metadata: data.metadata,
         }
-        this.broadcast(metadataUpdate, '') // Empty string means broadcast to everyone
+        this.broadcast(metadataUpdate, playerId)
         break
 
       default:
         const errorMessage: WebSocketMessage = {
-          type: 'error',
+          type: MessageType.Error,
           message: `Unknown message type: ${data.type}`,
         }
         this.sendMessage(ws, errorMessage)
@@ -283,7 +277,7 @@ export class VibescaleServer extends DurableObject<Env> {
       // Notify others of the disconnection
       this.broadcast(
         {
-          type: 'player:leave',
+          type: MessageType.PlayerLeave,
           id: playerId,
         },
         playerId
@@ -308,7 +302,16 @@ export class VibescaleServer extends DurableObject<Env> {
         // console.log('Skipping message to', playerId, 'because WebSocket is not open')
         continue
       }
-      this.sendMessage(socket, message)
+
+      if ('isLocal' in message && 'id' in message) {
+        const isLocal = message.id === playerId
+        this.sendMessage(socket, {
+          ...message,
+          isLocal,
+        })
+      } else {
+        this.sendMessage(socket, message)
+      }
     }
   }
 }

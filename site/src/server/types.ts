@@ -13,52 +13,65 @@ export interface Vector3 {
 export type PlayerId = string
 
 // Core player state types with empty generic defaults
-export type PlayerState<T = {}> = {
-  id: PlayerId
+export type PlayerDelta<T = {}> = {
   position: Vector3
   rotation: Vector3
 } & T
 
-export type PlayerMetadata<M = {}> = {
-  color: string
-} & M
+export type PlayerMetadata<M = {}> = M
 
-export type PlayerComplete<T = {}, M = {}> = PlayerState<T> & {
+export type PlayerServerData = {
+  color: string
+}
+
+export type Player<T = {}, M = {}> = {
+  id: PlayerId
+  delta: PlayerDelta<T>
+  server: PlayerServerData
   metadata: PlayerMetadata<M>
+}
+
+export enum MessageType {
+  Player = 'player',
+  PlayerDelta = 'player:delta',
+  PlayerMetadata = 'player:metadata',
+  PlayerLeave = 'player:leave',
+  Error = 'error',
 }
 
 // WebSocket message types
-export type PlayerIdMessage<T = {}, M = {}> = {
-  type: 'player:id'
-  id: PlayerId
-  state: PlayerState<T>
-  metadata: PlayerMetadata<M>
+
+export type PlayerMessage<T = {}, M = {}> = {
+  type: MessageType.Player
+  player: Player<T, M>
+  isLocal: boolean
 }
 
-export type PlayerStateMessage<T = {}> = {
-  type: 'player:state'
-  player: PlayerState<T>
+export type PlayerDeltaMessage<T = {}> = {
+  type: MessageType.PlayerDelta
+  id: PlayerId
+  delta: PlayerDelta<T>
 }
 
 export type PlayerMetadataMessage<M = {}> = {
-  type: 'player:metadata'
+  type: MessageType.PlayerMetadata
   id: PlayerId
   metadata: PlayerMetadata<M>
 }
 
 export type PlayerLeaveMessage = {
-  type: 'player:leave'
+  type: MessageType.PlayerLeave
   id: PlayerId
 }
 
 export type ErrorMessage = {
-  type: 'error'
+  type: MessageType.Error
   message: string
 }
 
 export type WebSocketMessage<T = {}, M = {}> =
-  | PlayerIdMessage<T, M>
-  | PlayerStateMessage<T>
+  | PlayerMessage<T, M>
+  | PlayerDeltaMessage<T>
   | PlayerMetadataMessage<M>
   | PlayerLeaveMessage
   | ErrorMessage

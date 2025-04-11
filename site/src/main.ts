@@ -6,9 +6,9 @@ import { appState } from './state'
 import { Navbar } from './ui/Navbar'
 
 // Import templates
+import stateChangeDetector from './server/stateChangeDetector.ts?raw'
+import networkTypes from './server/types.ts?raw'
 import instructions from './templates/instructions.md?raw'
-import networkTypes from './templates/network.ts?raw'
-import stateChangeDetector from './templates/stateChangeDetector.ts?raw'
 
 // Import Prism.js core and additional languages
 import 'prismjs'

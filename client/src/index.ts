@@ -1,12 +1,16 @@
-import type {
-  PlayerComplete,
-  PlayerId,
-  PlayerMetadata,
-  PlayerState,
-  WebSocketMessage,
-} from '../../site/src/templates/network'
 import { EventEmitter } from './EventEmitter'
-import type { DebugEventType, Room, RoomEvents, RoomOptions } from './types'
+import {
+  MessageType,
+  RoomEventType,
+  type Player,
+  type PlayerDelta,
+  type PlayerId,
+  type PlayerMetadata,
+  type Room,
+  type RoomEvents,
+  type RoomOptions,
+  type WebSocketMessage,
+} from './types'
 
 export * from './EventEmitter'
 export * from './types'
@@ -15,124 +19,87 @@ const nextTick = (cb: () => void) => {
   setTimeout(cb, 0)
 }
 
-export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOptions<T, M> = {}): Room<T, M> {
+export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOptions = {}): Room<T, M> {
   const emitter = new EventEmitter<RoomEvents<T, M>>()
-  // Helper to emit debug events
-  const debug = (type: DebugEventType, data?: any) => {
-    emitter.emit('debug', { type, data })
-  }
+  let playerId: PlayerId | null = null
+  const players = new Map<PlayerId, Player<T, M>>()
 
+  // Initialize WebSocket connection
   const defaultEndpoint = `https://vibescale.benallfree.com/`
-  nextTick(() => debug('info', { defaultEndpoint }))
+  nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { defaultEndpoint }))
   const wsEndpoint = `${options.endpoint === undefined ? defaultEndpoint : options.endpoint}/${roomName}/websocket`
-  nextTick(() => debug('info', { wsEndpoint }))
+  nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { wsEndpoint }))
   const ws = new WebSocket(wsEndpoint)
 
-  let playerId: PlayerId | null = null
-  let playerMetadata: PlayerMetadata<M> | null = null
-  let playerState: PlayerState<T> | null = null
-  const players = new Map<PlayerId, PlayerComplete<T, M>>()
-
+  // WebSocket event handlers
   ws.onopen = () => {
-    debug('ws:open', { roomName })
-    console.log('Connected to Vibescale room:', roomName)
-    emitter.emit('connected', undefined)
+    emitter.emit(RoomEventType.Connected, undefined)
   }
 
   ws.onclose = () => {
-    debug('ws:close', {
-      url: ws.url,
-      readyState: ws.readyState,
-      timestamp: new Date().getTime(),
-    })
-    console.log('Disconnected from Vibescale room:', roomName)
+    if (!playerId) return
     playerId = null
-    playerMetadata = null
-    playerState = null
     players.clear()
-    emitter.emit('disconnected', undefined)
+    emitter.emit(RoomEventType.Disconnected, undefined)
   }
 
   ws.onerror = (error) => {
-    const errorData = {
-      type: error.type,
-      isTrusted: error.isTrusted,
-      timeStamp: error.timeStamp,
-      eventPhase: error.eventPhase,
-      target: error.target
-        ? {
-            url: (error.target as WebSocket).url,
-            readyState: (error.target as WebSocket).readyState,
-          }
-        : null,
-    }
-    debug('ws:error', errorData)
-    console.error('WebSocket error:', error)
-    emitter.emit('error', 'WebSocket connection error')
+    emitter.emit(RoomEventType.Error, { message: 'WebSocket error', error })
   }
 
   ws.onmessage = (event) => {
     try {
-      debug('ws:message:raw', { data: event.data })
+      emitter.emit(RoomEventType.Rx, { event })
       const message = JSON.parse(event.data) as WebSocketMessage<T, M>
-      debug('ws:message:parsed', { message })
-      handleMessage(message)
+      handleRxMessage(message)
     } catch (error) {
-      debug('ws:message:error', { error, data: event.data })
-      console.error('Error parsing message:', error)
-      emitter.emit('error', 'Error parsing server message')
+      emitter.emit(RoomEventType.Error, {
+        message: 'Error parsing server message',
+        error,
+        details: { data: event.data },
+      })
     }
   }
 
-  function handleMessage(message: WebSocketMessage<T, M>) {
-    debug('message:handle:start', { message })
-
+  function handleRxMessage(message: WebSocketMessage<T, M>) {
     switch (message.type) {
-      case 'player:id':
-        if (!message.id || !message.state || !message.metadata) {
-          debug('message:handle:error', { type: 'player:id', error: 'Missing required fields' })
-          return
+      case MessageType.Player:
+        const player = message.player
+        if (message.isLocal) {
+          playerId = player.id
         }
-        playerId = message.id
-        playerMetadata = message.metadata
-        playerState = message.state
-        const playerComplete: PlayerComplete<T, M> = {
-          ...message.state,
-          metadata: message.metadata,
-        }
-        players.set(message.id, playerComplete)
-        debug('player:id:received', { player: playerComplete })
-        emitter.emit('player:joined', playerComplete)
+
+        players.set(player.id, player)
+        emitter.emit(RoomEventType.PlayerJoined, player)
         break
 
-      case 'player:state':
-        if (!message.player || !message.player.id) {
-          debug('message:handle:error', { type: 'player:state', error: 'Missing required fields' })
-          return
-        }
-        const existingPlayer = players.get(message.player.id)
+      case MessageType.PlayerDelta:
+        const existingPlayer = players.get(message.id)
         if (!existingPlayer) {
-          debug('message:handle:error', { type: 'player:state', error: 'Player not found', id: message.player.id })
+          emitter.emit(RoomEventType.Error, {
+            message: 'Player not found',
+            error: new Error('Player not found'),
+            details: { id: message.id },
+          })
           return
         }
 
-        const updatedPlayer: PlayerComplete<T, M> = {
-          ...message.player,
-          metadata: existingPlayer.metadata,
+        const updatedPlayer: Player<T, M> = {
+          ...existingPlayer,
+          delta: message.delta,
         }
-        players.set(message.player.id, updatedPlayer)
-        debug('player:state:updated', { player: updatedPlayer })
-        emitter.emit('player:updated', updatedPlayer)
+        players.set(message.id, updatedPlayer)
+        emitter.emit(RoomEventType.PlayerUpdated, updatedPlayer)
         break
 
-      case 'player:metadata':
-        if (!message.metadata || !message.id) {
-          debug('message:handle:error', { type: 'player:metadata', error: 'Missing required fields' })
-          return
-        }
+      case MessageType.PlayerMetadata:
         const existingPlayerForMetadata = players.get(message.id)
         if (!existingPlayerForMetadata) {
-          debug('message:handle:error', { type: 'player:metadata', error: 'Player not found', id: message.id })
+          emitter.emit(RoomEventType.Error, {
+            message: 'Player not found',
+            error: new Error('Player not found'),
+            details: { message },
+          })
           return
         }
 
@@ -141,35 +108,36 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
           metadata: message.metadata,
         }
         players.set(message.id, playerWithUpdatedMetadata)
-        debug('player:metadata:updated', { player: playerWithUpdatedMetadata })
-        emitter.emit('player:updated', playerWithUpdatedMetadata)
+        emitter.emit(RoomEventType.PlayerUpdated, playerWithUpdatedMetadata)
         break
 
-      case 'player:leave':
-        if (!message.id) {
-          debug('message:handle:error', { type: 'player:leave', error: 'Missing required fields' })
-          return
-        }
+      case MessageType.PlayerLeave:
         const leavingPlayer = players.get(message.id)
         if (leavingPlayer) {
           players.delete(message.id)
-          debug('player:leave:processed', { player: leavingPlayer })
-          emitter.emit('player:left', leavingPlayer)
+          emitter.emit(RoomEventType.PlayerLeft, leavingPlayer)
         } else {
-          debug('message:handle:error', { type: 'player:leave', error: 'Player not found', id: message.id })
+          emitter.emit(RoomEventType.PlayerError, {
+            type: 'player:leave',
+            error: 'Player not found',
+            details: { message },
+          })
         }
         break
 
       default:
-        debug('message:handle:error', { error: 'Unknown message type', message })
+        emitter.emit(RoomEventType.Error, {
+          message: 'Unknown message type',
+          error: new Error('Unknown message type'),
+          details: { message },
+        })
     }
-
-    debug('message:handle:complete', { type: message.type })
   }
 
   const room: Room<T, M> = {
     on: emitter.on.bind(emitter),
     off: emitter.off.bind(emitter),
+    emit: emitter.emit.bind(emitter),
     getPlayer: (id: PlayerId) => {
       return players.get(id) || null
     },
@@ -179,71 +147,53 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
       return players.get(playerId) || null
     },
 
-    setLocalPlayerMetadata: (metadata: Partial<PlayerMetadata<M>>) => {
-      if (!playerId || !playerMetadata) return
-
-      debug('metadata:update:start', { metadata })
-
-      // Update local metadata
-      playerMetadata = { ...playerMetadata, ...metadata }
+    setLocalPlayerMetadata: (metadata: PlayerMetadata<M>) => {
+      if (!playerId) return
 
       // Update in players map
       const currentPlayer = players.get(playerId)
       if (currentPlayer) {
-        const updatedPlayer = {
+        const updatedPlayer: Player<T, M> = {
           ...currentPlayer,
-          metadata: playerMetadata,
+          metadata: metadata,
         }
         players.set(playerId, updatedPlayer)
-        debug('metadata:update:local', { player: updatedPlayer })
       }
 
       // Send to server
-      if (ws.readyState === WebSocket.OPEN) {
-        const message = {
-          type: 'player:metadata',
-          metadata: playerMetadata,
-        }
-        ws.send(JSON.stringify(message))
-        debug('metadata:update:send', { message })
+      const message: WebSocketMessage<T, M> = {
+        type: MessageType.PlayerMetadata,
+        id: playerId,
+        metadata: metadata,
       }
+      emitter.emit(RoomEventType.Tx, { message })
+      ws.send(JSON.stringify(message))
     },
 
-    setLocalPlayerState: (state: Partial<Omit<PlayerState<T>, 'id'>>) => {
-      if (!playerId || !playerState) return
-
-      debug('state:update:start', { state })
-
-      // Update local state
-      playerState = { ...playerState, ...state }
+    setLocalPlayerDelta: (delta: PlayerDelta<T>) => {
+      if (!playerId || !delta) return
 
       // Update in players map
       const currentPlayer = players.get(playerId)
       if (currentPlayer) {
         const updatedPlayer = {
           ...currentPlayer,
-          ...state,
+          ...delta,
         }
         players.set(playerId, updatedPlayer)
-        debug('state:update:local', { player: updatedPlayer })
       }
 
       // Send to server
-      if (ws.readyState === WebSocket.OPEN) {
-        const message = {
-          type: 'player:state',
-          player: {
-            id: playerId,
-            ...state,
-          },
-        }
-        ws.send(JSON.stringify(message))
-        debug('state:update:send', { message })
+      const message: WebSocketMessage<T, M> = {
+        type: MessageType.PlayerDelta,
+        id: playerId,
+        delta,
       }
+      emitter.emit(RoomEventType.Tx, { message })
+      ws.send(JSON.stringify(message))
     },
 
     disconnect: () => {
-      debug('disconnect')
       ws.close()
     },
   }

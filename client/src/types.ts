@@ -1,62 +1,71 @@
-import type { PlayerComplete, PlayerId, PlayerMetadata, PlayerState } from '../../site/src/templates/network'
+import type { Player, PlayerDelta, PlayerId, PlayerMetadata, WebSocketMessage } from '../../site/src/server/types'
+import type { Emitter } from './EventEmitter'
 
-export * from '../../site/src/templates/network'
+export * from '../../site/src/server/types'
 
-export type PlayerEventCallback<T = {}, M = {}> = (player: PlayerComplete<T, M>) => void
+export type PlayerEventCallback<T = {}, M = {}> = (player: Player<T, M>) => void
 
-export type DebugEventType =
-  | 'info'
-  | 'ws:open'
-  | 'ws:close'
-  | 'ws:error'
-  | 'ws:message:raw'
-  | 'ws:message:parsed'
-  | 'ws:message:error'
-  | 'message:handle:start'
-  | 'message:handle:complete'
-  | 'message:handle:error'
-  | 'player:id:received'
-  | 'player:state:updated'
-  | 'player:metadata:updated'
-  | 'player:leave:processed'
-  | 'metadata:update:start'
-  | 'metadata:update:local'
-  | 'metadata:update:send'
-  | 'state:update:start'
-  | 'state:update:local'
-  | 'state:update:send'
-  | 'disconnect'
+// Enum for all possible event names
+export enum RoomEventType {
+  // Core events
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+  Error = 'error',
 
-export type DebugEvent = {
-  type: DebugEventType
-  data?: any
+  // Local player events
+  LocalPlayerJoined = 'local:player:joined',
+
+  // Player events
+  PlayerJoined = 'player:joined',
+  PlayerLeft = 'player:left',
+  PlayerUpdated = 'player:updated',
+  PlayerError = 'player:error',
+
+  // WebSocket events
+  WebSocketInfo = 'websocket:info',
+  Rx = 'rx',
+  Tx = 'tx',
+
+  // Any event
+  Any = '*',
 }
 
-export type DebugEventCallback = (event: DebugEvent) => void
-
-// Define all possible room events and their payload types
-export interface RoomEvents<T = {}, M = {}> {
-  ['player:updated']: PlayerComplete<T, M>
-  ['player:joined']: PlayerComplete<T, M>
-  ['player:left']: PlayerComplete<T, M>
-  debug: DebugEvent
-  error: string
-  connected: undefined
-  disconnected: undefined
+export type AnyEventPayload<T = {}, M = {}> = {
+  type: RoomEventType
+  data: RoomEventPayloads<T, M>[RoomEventType]
 }
 
-export type RoomEventType = keyof RoomEvents
+// Event payloads
+export interface RoomEventPayloads<T = {}, M = {}> {
+  [RoomEventType.Connected]: undefined
+  [RoomEventType.Disconnected]: undefined
+  [RoomEventType.Error]: { message: string; error: any; details?: any }
 
-export type RoomOptions<T = {}, M = {}> = {
+  [RoomEventType.LocalPlayerJoined]: Player<T, M>
+
+  [RoomEventType.PlayerJoined]: Player<T, M>
+  [RoomEventType.PlayerLeft]: Player<T, M>
+  [RoomEventType.PlayerUpdated]: Player<T, M>
+  [RoomEventType.PlayerError]: { type: string; error: string; details?: any }
+
+  [RoomEventType.WebSocketInfo]: Record<string, any>
+  [RoomEventType.Rx]: { event: MessageEvent }
+  [RoomEventType.Tx]: { message: WebSocketMessage<T, M> }
+
+  [RoomEventType.Any]: AnyEventPayload<T, M>
+}
+
+// Update RoomEvents to use RoomEventPayloads
+export type RoomEvents<T = {}, M = {}> = RoomEventPayloads<T, M>
+
+export type RoomOptions = {
   endpoint?: string
 }
 
-export interface Room<T = {}, M = {}> {
-  on<E extends keyof RoomEvents<T, M>>(event: E, callback: (payload: RoomEvents<T, M>[E]) => void): () => void
-  off<E extends keyof RoomEvents<T, M>>(event: E, callback: (payload: RoomEvents<T, M>[E]) => void): void
-  getPlayer: (id: PlayerId) => PlayerComplete<T, M> | null
-  getLocalPlayer: () => PlayerComplete<T, M> | null
-  setLocalPlayerMetadata: (metadata: Partial<PlayerMetadata<M>>) => void
-  setLocalPlayerState: (state: Partial<Omit<PlayerState<T>, 'id'>>) => void
+export type Room<T = {}, M = {}> = {
+  getPlayer: (id: PlayerId) => Player<T, M> | null
+  getLocalPlayer: () => Player<T, M> | null
+  setLocalPlayerMetadata: (metadata: PlayerMetadata<M>) => void
+  setLocalPlayerDelta: (delta: PlayerDelta<T>) => void
   disconnect: () => void
-}
+} & Emitter<RoomEvents<T, M>>

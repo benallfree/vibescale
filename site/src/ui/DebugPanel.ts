@@ -1,18 +1,23 @@
 import van from 'vanjs-core'
 import { reactive } from 'vanjs-ext'
-import { createRoom, DebugEvent, type PlayerComplete } from 'vibescale'
+import {
+  createRoom,
+  RoomEventType,
+  type EmitterEvent,
+  type Player,
+  type RoomEventPayloads,
+  type RoomEvents,
+} from 'vibescale'
 import { appState } from '../state'
 
 const { div, h2, pre, code, textarea, button } = van.tags
 
 interface DebugState {
-  history: string[]
+  history: EmitterEvent<RoomEvents>[]
   connectionStatus: 'connecting' | 'connected' | 'disconnected'
-  playerId: string | null
-  metadataText: string
+  player: Player | null
   stateText: string
-  hasMetadataError: boolean
-  hasStateError: boolean
+  metadataText: string
 }
 
 export const DebugPanel = () => {
@@ -20,8 +25,7 @@ export const DebugPanel = () => {
   const debugState = reactive<DebugState>({
     history: [],
     connectionStatus: 'connecting',
-    playerId: null,
-    metadataText: '{}',
+    player: null,
     stateText: JSON.stringify(
       {
         position: { x: 0, y: 0, z: 0 },
@@ -30,8 +34,7 @@ export const DebugPanel = () => {
       null,
       2
     ),
-    hasMetadataError: false,
-    hasStateError: false,
+    metadataText: JSON.stringify({}, null, 2),
   })
 
   // Connect to room using client library
@@ -40,68 +43,54 @@ export const DebugPanel = () => {
     endpoint: '',
   })
 
+  // Type guard functions
+  function isPlayerEvent(
+    event: EmitterEvent<RoomEventPayloads>
+  ): event is EmitterEvent<RoomEventPayloads> & { data: Player } {
+    return [RoomEventType.PlayerJoined, RoomEventType.PlayerLeft, RoomEventType.PlayerUpdated].includes(
+      event.name as RoomEventType
+    )
+  }
+
   // Connection events
-  room.on('connected', () => {
-    const timestamp = new Date().toISOString()
+  room.on(RoomEventType.Connected, () => {
     debugState.connectionStatus = 'connected'
-    debugState.history = [...debugState.history, `[${timestamp}] Connected to room`]
   })
 
-  room.on('disconnected', () => {
-    const timestamp = new Date().toISOString()
+  room.on(RoomEventType.Disconnected, () => {
     debugState.connectionStatus = 'disconnected'
-    debugState.playerId = null
-    debugState.history = [...debugState.history, `[${timestamp}] Disconnected from room`]
+    debugState.player = null
   })
 
-  // Debug events
-  room.on('debug', (event: DebugEvent) => {
-    const { type, data } = event
-    const timestamp = new Date().toISOString()
-    let message = `[${timestamp}] ${type}`
-    if (data) {
-      message += ` ${JSON.stringify(data, null, 2)}`
-    }
-
-    debugState.history = [...debugState.history, message]
+  // Debug events - capture all events
+  room.on('*', (event) => {
+    debugState.history = [...debugState.history, event]
   })
 
   // Player events
-  room.on('player:joined', (player: PlayerComplete<{}, {}>) => {
-    if (!debugState.playerId) {
-      debugState.playerId = player.id
-      // Format the metadata nicely with 2 spaces indentation
-      debugState.metadataText = JSON.stringify(player.metadata, null, 2)
-      // Format the state nicely with 2 spaces indentation
-      const { position, rotation } = player
-      debugState.stateText = JSON.stringify({ position, rotation }, null, 2)
+  room.on(RoomEventType.PlayerJoined, (event: EmitterEvent<RoomEventPayloads>) => {
+    if (isPlayerEvent(event)) {
+      debugState.player = event.data
     }
-    const timestamp = new Date().toISOString()
-    debugState.history = [...debugState.history, `[${timestamp}] Player joined: ${player.id}`]
   })
 
-  room.on('player:left', (player: PlayerComplete<{}, {}>) => {
-    const timestamp = new Date().toISOString()
-    debugState.history = [...debugState.history, `[${timestamp}] Player left: ${player.id}`]
+  room.on(RoomEventType.PlayerLeft, (event: EmitterEvent<RoomEventPayloads>) => {
+    if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
+      debugState.player = null
+    }
   })
 
-  room.on('player:updated', (player: PlayerComplete<{}, {}>) => {
-    if (player.id === debugState.playerId) {
-      // Update the metadata text when our player is updated
-      debugState.metadataText = JSON.stringify(player.metadata, null, 2)
-      // Update the state text when our player is updated
-      const { position, rotation } = player
-      debugState.stateText = JSON.stringify({ position, rotation }, null, 2)
+  room.on(RoomEventType.PlayerUpdated, (event: EmitterEvent<RoomEventPayloads>) => {
+    if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
+      debugState.player = event.data
     }
-    const timestamp = new Date().toISOString()
-    debugState.history = [...debugState.history, `[${timestamp}] Player updated: ${player.id}`]
   })
 
   // Error events
-  room.on('error', (error: string) => {
-    const timestamp = new Date().toISOString()
-    debugState.history = [...debugState.history, `[${timestamp}] ! Error: ${error}`]
-    debugState.connectionStatus = 'disconnected'
+  room.on(RoomEventType.Error, (event: EmitterEvent<RoomEventPayloads>) => {
+    if (event.name === RoomEventType.Error) {
+      debugState.connectionStatus = 'disconnected'
+    }
   })
 
   // Cleanup
@@ -109,38 +98,14 @@ export const DebugPanel = () => {
     room.disconnect()
   })
 
-  // Function to update metadata
-  const updateMetadata = () => {
-    try {
-      const metadata = JSON.parse(debugState.metadataText)
-      room.setLocalPlayerMetadata(metadata)
-      debugState.hasMetadataError = false
-    } catch (e) {
-      debugState.hasMetadataError = true
-      console.error('Invalid JSON:', e)
+  // Helper to format event for display
+  const formatEvent = (event: EmitterEvent<RoomEvents>) => {
+    const timestamp = new Date().toISOString()
+    let message = `[${timestamp}] ${event.name}`
+    if (event.data !== undefined) {
+      message += `\n${JSON.stringify(event.data, null, 2)}`
     }
-  }
-
-  // Function to update state
-  const updateState = () => {
-    try {
-      const state = JSON.parse(debugState.stateText)
-      // Validate that state has position and rotation as Vector3
-      if (
-        !state.position ||
-        !state.rotation ||
-        !['x', 'y', 'z'].every((key) => typeof state.position[key] === 'number') ||
-        !['x', 'y', 'z'].every((key) => typeof state.rotation[key] === 'number')
-      ) {
-        throw new Error('State must have position and rotation as Vector3')
-      }
-      // Send state update
-      room.setLocalPlayerState(state)
-      debugState.hasStateError = false
-    } catch (e) {
-      debugState.hasStateError = true
-      console.error('Invalid state:', e)
-    }
+    return message
   }
 
   return div(
@@ -158,7 +123,7 @@ export const DebugPanel = () => {
         div({ class: 'font-semibold text-lg' }, 'Player ID'),
         div(
           { class: 'bg-base-300 p-4 rounded-lg font-mono text-sm break-all' },
-          () => debugState.playerId || 'Waiting for ID...'
+          () => debugState.player?.id || 'Waiting for ID...'
         )
       ),
       div(
@@ -171,34 +136,22 @@ export const DebugPanel = () => {
             { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
             textarea({
               value: () => debugState.stateText,
-              oninput: (e: Event) => {
-                debugState.stateText = (e.target as HTMLTextAreaElement).value
-                try {
-                  const state = JSON.parse(debugState.stateText)
-                  if (
-                    !state.position ||
-                    !state.rotation ||
-                    !['x', 'y', 'z'].every((key) => typeof state.position[key] === 'number') ||
-                    !['x', 'y', 'z'].every((key) => typeof state.rotation[key] === 'number')
-                  ) {
-                    throw new Error('Invalid state format')
-                  }
-                  debugState.hasStateError = false
-                } catch (e) {
-                  debugState.hasStateError = true
-                }
-              },
-              class: () =>
-                `w-full h-64 font-mono text-sm p-2 rounded ${debugState.hasStateError ? 'border-2 border-red-500' : ''}`,
+              class: 'w-full h-64 font-mono text-sm p-2 rounded',
               placeholder: 'Enter state JSON (position and rotation)...',
             }),
             button(
               {
-                onclick: updateState,
-                class: () => `btn ${debugState.hasStateError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
-                disabled: () => debugState.hasStateError,
+                onclick: () => {
+                  try {
+                    const state = JSON.parse(debugState.stateText)
+                    room.setLocalPlayerDelta(state)
+                  } catch (e) {
+                    console.error('Failed to update state:', e)
+                  }
+                },
+                class: 'btn btn-primary btn-sm w-full',
               },
-              () => (debugState.hasStateError ? 'Invalid State Format' : 'Update State')
+              'Update State'
             )
           )
         ),
@@ -210,28 +163,22 @@ export const DebugPanel = () => {
             { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
             textarea({
               value: () => debugState.metadataText,
-              oninput: (e: Event) => {
-                debugState.metadataText = (e.target as HTMLTextAreaElement).value
-                try {
-                  JSON.parse(debugState.metadataText)
-                  debugState.hasMetadataError = false
-                } catch (e) {
-                  debugState.hasMetadataError = true
-                }
-              },
-              class: () =>
-                `w-full h-64 font-mono text-sm p-2 rounded ${
-                  debugState.hasMetadataError ? 'border-2 border-red-500' : ''
-                }`,
+              class: 'w-full h-64 font-mono text-sm p-2 rounded',
               placeholder: 'Enter JSON metadata...',
             }),
             button(
               {
-                onclick: updateMetadata,
-                class: () => `btn ${debugState.hasMetadataError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
-                disabled: () => debugState.hasMetadataError,
+                onclick: () => {
+                  try {
+                    const metadata = JSON.parse(debugState.metadataText)
+                    room.setLocalPlayerMetadata(metadata)
+                  } catch (e) {
+                    console.error('Failed to update metadata:', e)
+                  }
+                },
+                class: 'btn btn-primary btn-sm w-full',
               },
-              () => (debugState.hasMetadataError ? 'Invalid JSON' : 'Update Metadata')
+              'Update Metadata'
             )
           )
         )
@@ -243,7 +190,7 @@ export const DebugPanel = () => {
           { class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' },
           pre(
             { class: 'whitespace-pre-wrap break-all max-h-[400px] overflow-y-auto' },
-            () => debugState.history.join('\n\n') || 'No events yet...'
+            () => debugState.history.map(formatEvent).join('\n\n') || 'No events yet...'
           )
         )
       )

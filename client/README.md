@@ -10,44 +10,90 @@ npm install vibescale
 
 ## Quick Start
 
+### TypeScript Example
+
 ```typescript
-import { createRoom } from 'vibescale'
+import { createRoom, RoomEventType } from 'vibescale'
 
 // Connect to a room
-const room = createRoom('my-awesome-game')
+const room = createRoom('my-game')
 
-// Listen for player updates (state or metadata changes)
-room.on('playerUpdate', (player) => {
-  console.log('Player updated:', player)
+// Easy debugging - listen to all events
+room.on('*', ({ event, payload }) => {
+  console.log('Event:', event, 'Payload:', payload)
+})
+
+// Listen for player updates using enum
+room.on(RoomEventType.PlayerUpdated, (player) => {
+  console.log('Player updated:', player.id)
+  console.log('Position:', player.position)
+  console.log('Player color:', player.metadata.color)
 })
 
 // Handle player joins
-room.on('playerJoin', (player) => {
-  console.log('Player joined:', player)
+room.on(RoomEventType.PlayerJoined, (player) => {
+  console.log('New player:', player.id)
+  console.log('Assigned color:', player.metadata.color)
 })
 
-// Handle player leaves
-room.on('playerLeave', (player) => {
-  console.log('Player left:', player)
+// Get your own player data
+const localPlayer = room.getLocalPlayer()
+if (localPlayer) {
+  console.log('My ID:', localPlayer.id)
+  console.log('My assigned color:', localPlayer.metadata.color)
+}
+
+// Get another player's data
+const otherPlayer = room.getPlayer('some-player-id')
+if (otherPlayer) {
+  console.log('Other player color:', otherPlayer.metadata.color)
+}
+```
+
+### JavaScript Example
+
+```javascript
+import { createRoom } from 'vibescale'
+
+// Connect to a room
+const room = createRoom('my-game')
+
+// Easy debugging - listen to all events
+room.on('*', ({ event, payload }) => {
+  console.log('Event:', event, 'Payload:', payload)
 })
 
-// Update local player state (high-frequency updates)
-room.setLocalPlayerState({
-  position: { x: 0, y: 0, z: 0 },
-  rotation: { x: 0, y: 0, z: 0 },
+// Listen for player updates
+room.on('player:updated', (player) => {
+  console.log('Player updated:', player.id)
+  console.log('Position:', player.position)
+  console.log('Player color:', player.metadata.color)
 })
+
+// Handle player joins
+room.on('player:joined', (player) => {
+  console.log('New player:', player.id)
+  console.log('Assigned color:', player.metadata.color)
+})
+
+// Get your own player data
+const localPlayer = room.getLocalPlayer()
+if (localPlayer) {
+  console.log('My ID:', localPlayer.id)
+  console.log('My assigned color:', localPlayer.metadata.color)
+}
 ```
 
 ## API Reference
 
-### `createRoom<T = {}, M = {}>(roomName: string, options?: RoomOptions<T, M>): Room<T, M>`
+### `createRoom<T = {}, M = {}>(roomName: string, options?: RoomOptions): Room<T, M>`
 
 Creates and connects to a Vibescale room. Supports generic types for custom state (T) and metadata (M).
 
 #### Options
 
 ```typescript
-interface RoomOptions<T = {}, M = {}> {
+interface RoomOptions {
   endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
 }
 ```
@@ -57,38 +103,73 @@ interface RoomOptions<T = {}, M = {}> {
 ```typescript
 interface Room<T = {}, M = {}> {
   // Event handling
-  on<E extends keyof RoomEvents>(event: E, callback: (payload: RoomEvents[E]) => void): () => void
-  off<E extends keyof RoomEvents>(event: E, callback: (payload: RoomEvents[E]) => void): void
+  on<E extends keyof RoomEvents<T, M>>(
+    event: E | '*',
+    callback: (
+      payload: E extends '*'
+        ? { event: keyof RoomEvents<T, M>; payload: RoomEvents<T, M>[keyof RoomEvents<T, M>] }
+        : RoomEvents<T, M>[E]
+    ) => void
+  ): () => void
+
+  off<E extends keyof RoomEvents<T, M>>(event: E | '*', callback: (/* same signature as 'on' */) => void): void
 
   // Player access
-  getPlayer: (id: PlayerId) => PlayerComplete<T, M> | null
-  getLocalPlayer: () => PlayerComplete<T, M> | null
+  getPlayer: (id: PlayerId) => Player<T, M> | null
+  getLocalPlayer: () => Player<T, M> | null
 
   // Local player updates
-  setLocalPlayerState: (state: Partial<Omit<PlayerState<T>, 'id'>>) => void
-  setLocalPlayerMetadata: (metadata: Partial<PlayerMetadata<M>>) => void
+  setLocalPlayerDelta: (delta: PlayerDelta<T>) => void
+  setLocalPlayerMetadata: (metadata: PlayerMetadata<M>) => void
 
   // Connection management
   disconnect: () => void
 }
 
-// Available events in RoomEvents
-interface RoomEvents<T = {}, M = {}> {
-  playerUpdate: PlayerComplete<T, M> // Emitted when any player's state or metadata updates
-  playerJoin: PlayerComplete<T, M> // Emitted when a player joins
-  playerLeave: PlayerComplete<T, M> // Emitted when a player leaves
-  connected: undefined // Emitted when connected to the room
-  disconnected: undefined // Emitted when disconnected from the room
-  error: string // Emitted when an error occurs
-  debug: DebugEvent // Emitted for debugging information
+// Available events
+enum RoomEventType {
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+  Error = 'error',
+  PlayerJoined = 'player:joined',
+  PlayerLeft = 'player:left',
+  PlayerUpdated = 'player:updated',
+  PlayerError = 'player:error',
+  WebSocketInfo = 'websocket:info',
+  Rx = 'rx',
+  Tx = 'tx',
 }
+```
+
+### Event System
+
+The room uses a strongly-typed event system. You can listen to specific events or use '\*' to listen to all events:
+
+```typescript
+// Listen to all events
+room.on('*', ({ event, payload }) => {
+  console.log('Event:', event, 'Payload:', payload)
+})
+
+// Listen to specific events
+room.on('player:joined', (player) => {
+  console.log('Player joined:', player)
+})
+
+room.on('player:updated', (player) => {
+  console.log('Player updated:', player)
+})
+
+room.on('error', ({ message, error, details }) => {
+  console.error('Error:', message, error, details)
+})
 ```
 
 ### State vs Metadata
 
 The client provides two methods for updating player data:
 
-- `setLocalPlayerState`: Used for frequently changing data like position, rotation, or any game state that updates many times per second. This is optimized for high-frequency updates and should contain only the essential data needed for real-time gameplay.
+- `setLocalPlayerDelta`: Used for frequently changing data like position, rotation, or any game state that updates many times per second. This is optimized for high-frequency updates and should contain only the essential data needed for real-time gameplay.
 
 - `setLocalPlayerMetadata`: Used for infrequently changing data like player name, color, or other static attributes. This is separate from state to avoid sending this data with every state update, reducing network traffic.
 
@@ -96,7 +177,7 @@ For example:
 
 ```typescript
 // Frequently updated state (many times per second)
-room.setLocalPlayerState({
+room.setLocalPlayerDelta({
   position: { x: 10, y: 5, z: 0 },
   rotation: { x: 0, y: Math.PI / 2, z: 0 },
   health: 100, // Game state that changes during gameplay
@@ -104,7 +185,6 @@ room.setLocalPlayerState({
 
 // Infrequently updated metadata (occasional updates)
 room.setLocalPlayerMetadata({
-  name: 'Player1',
   color: '#ff0000',
   avatar: 'warrior', // Static attributes that rarely change
 })
@@ -113,7 +193,6 @@ room.setLocalPlayerMetadata({
 ### Types
 
 ```typescript
-// Core types with support for custom state (T) and metadata (M)
 type PlayerId = string
 
 interface Vector3 {
@@ -122,65 +201,36 @@ interface Vector3 {
   z: number
 }
 
-interface PlayerState<T = {}> {
+interface PlayerDelta<T = {}> {
+  id?: PlayerId
+  position?: Vector3
+  rotation?: Vector3
+} & Partial<T>
+
+interface Player<T = {}, M = {}> {
   id: PlayerId
   position: Vector3
   rotation: Vector3
+  metadata: PlayerMetadata<M>
 } & T
 
 interface PlayerMetadata<M = {}> {
-  color: string
   [key: string]: unknown
 } & M
 
-interface PlayerComplete<T = {}, M = {}> extends PlayerState<T> {
-  metadata: PlayerMetadata<M>
+// Event payloads
+interface RoomEventPayloads<T = {}, M = {}> {
+  'connected': undefined
+  'disconnected': undefined
+  'error': { message: string; error: any; details?: any }
+  'player:joined': Player<T, M>
+  'player:left': Player<T, M>
+  'player:updated': Player<T, M>
+  'player:error': { type: string; error: string; details?: any }
+  'websocket:info': Record<string, any>
+  'rx': { event: MessageEvent }
+  'tx': { message: WebSocketMessage<T, M> }
 }
-
-// Room events
-interface RoomEvents<T = {}, M = {}> {
-  playerUpdate: PlayerComplete<T, M>  // Emitted when any player's state or metadata updates
-  playerJoin: PlayerComplete<T, M>    // Emitted when a player joins
-  playerLeave: PlayerComplete<T, M>   // Emitted when a player leaves
-  connected: undefined                 // Emitted when connected to the room
-  disconnected: undefined             // Emitted when disconnected from the room
-  error: string                       // Emitted when an error occurs
-  debug: DebugEvent                   // Emitted for debugging information
-}
-
-// Room configuration
-interface RoomOptions<T = {}, M = {}> {
-  endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
-}
-
-// Debug events (if needed for advanced usage)
-interface DebugEvent {
-  type: DebugEventType
-  data?: any
-}
-
-type DebugEventType =
-  | 'info'
-  | 'ws:open'
-  | 'ws:close'
-  | 'ws:error'
-  | 'ws:message:raw'
-  | 'ws:message:parsed'
-  | 'ws:message:error'
-  | 'message:handle:start'
-  | 'message:handle:complete'
-  | 'message:handle:error'
-  | 'player:id:received'
-  | 'player:state:updated'
-  | 'player:metadata:updated'
-  | 'player:leave:processed'
-  | 'metadata:update:start'
-  | 'metadata:update:local'
-  | 'metadata:update:send'
-  | 'state:update:start'
-  | 'state:update:local'
-  | 'state:update:send'
-  | 'disconnect'
 ```
 
 ## Example: Three.js Integration
@@ -195,7 +245,7 @@ const players = new Map<string, THREE.Mesh>()
 const room = createRoom('three-js-room')
 
 // Handle player updates (state changes)
-room.on('playerUpdate', (player) => {
+room.on('player:updated', (player) => {
   const mesh = players.get(player.id)
   if (mesh) {
     mesh.position.set(player.position.x, player.position.y, player.position.z)
@@ -204,7 +254,7 @@ room.on('playerUpdate', (player) => {
 })
 
 // Handle new players
-room.on('playerJoin', (player) => {
+room.on('player:joined', (player) => {
   const geometry = new THREE.BoxGeometry()
   const material = new THREE.MeshBasicMaterial({ color: player.metadata.color })
   const mesh = new THREE.Mesh(geometry, material)
@@ -217,7 +267,7 @@ room.on('playerJoin', (player) => {
 })
 
 // Handle players leaving
-room.on('playerLeave', (player) => {
+room.on('player:left', (player) => {
   const mesh = players.get(player.id)
   if (mesh) {
     scene.remove(mesh)
@@ -227,7 +277,7 @@ room.on('playerLeave', (player) => {
 
 // Update local player position and rotation
 function onPlayerMove(position: Vector3, rotation: Vector3) {
-  room.setLocalPlayerState({
+  room.setLocalPlayerDelta({
     position,
     rotation,
   })
@@ -237,3 +287,112 @@ function onPlayerMove(position: Vector3, rotation: Vector3) {
 ## License
 
 MIT
+
+## Advanced Examples
+
+### Updating Player State and Metadata
+
+The room provides methods to update your local player's state and metadata:
+
+```typescript
+import { createRoom, RoomEventType } from 'vibescale'
+
+const room = createRoom('my-game')
+
+// Update position and rotation (high-frequency updates)
+room.setLocalPlayerDelta({
+  position: { x: 10, y: 5, z: 0 },
+  rotation: { x: 0, y: Math.PI / 2, z: 0 },
+})
+
+// Update metadata (low-frequency updates)
+room.setLocalPlayerMetadata({
+  color: '#ff0000', // Required base field
+})
+```
+
+### Custom Player State and Metadata
+
+You can extend the base `PlayerState` and `PlayerMetadata` types to add custom properties for your game:
+
+```typescript
+import { createRoom, RoomEventType, type PlayerState, type PlayerMetadata } from 'vibescale'
+
+// Extend PlayerState with game-specific properties
+interface GamePlayerState extends PlayerState {
+  health: number
+  score: number
+  powerups: string[]
+  lastAttackTime: number
+}
+
+// Extend PlayerMetadata with game-specific properties
+interface GamePlayerMetadata extends PlayerMetadata {
+  username: string
+  team: 'red' | 'blue'
+  rank: number
+  cosmetics: {
+    skin: string
+    emotes: string[]
+  }
+}
+
+// Create a room with your custom types
+const room = createRoom<GamePlayerState, GamePlayerMetadata>('my-game')
+
+// TypeScript now knows about your custom properties
+room.on(RoomEventType.PlayerUpdated, (player) => {
+  // Base properties from PlayerState
+  console.log('Position:', player.position)
+  console.log('Rotation:', player.rotation)
+
+  // Your custom state properties
+  console.log('Health:', player.health)
+  console.log('Score:', player.score)
+  console.log('Active powerups:', player.powerups)
+
+  // Your custom metadata
+  console.log('Team:', player.metadata.team)
+  console.log('Rank:', player.metadata.rank)
+  console.log('Skin:', player.metadata.cosmetics.skin)
+})
+
+// Update with custom state properties
+room.setLocalPlayerDelta({
+  health: 75,
+  score: 100,
+  powerups: ['speed', 'shield'],
+  lastAttackTime: Date.now(),
+})
+
+// Update with custom metadata
+room.setLocalPlayerMetadata({
+  color: '#ff0000',
+  username: 'ProGamer123',
+  team: 'blue',
+  rank: 42,
+  cosmetics: {
+    skin: 'dragon',
+    emotes: ['dance', 'wave', 'thumbsup'],
+  },
+})
+
+// Type checking ensures you can't set invalid properties
+room.setLocalPlayerDelta({
+  invalidProperty: true, // TypeScript error!
+})
+
+// Or miss required properties when setting metadata
+room.setLocalPlayerMetadata({
+  username: 'Player1', // TypeScript error: missing required 'color' property
+  team: 'green', // TypeScript error: 'green' is not assignable to 'red' | 'blue'
+})
+```
+
+This example demonstrates:
+
+- Extending base types with custom properties
+- Type safety for custom properties
+- Complex nested types
+- Union types for constrained values
+- Full TypeScript type checking for all operations
