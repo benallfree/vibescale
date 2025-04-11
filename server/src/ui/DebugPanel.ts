@@ -20,7 +20,10 @@ export const DebugPanel = () => {
   })
 
   // Connect to room using client library
-  const room = createRoom<{}, {}>(appState.roomName, { endpoint: '' })
+  const room = createRoom(appState.roomName, {
+    // this will default to the vibescale server that the debug panel is hosted on
+    endpoint: '',
+  })
 
   // Connection events
   room.on('connected', () => {
@@ -42,7 +45,7 @@ export const DebugPanel = () => {
     const timestamp = new Date().toISOString()
     let message = `[${timestamp}] ${type}`
     if (data) {
-      message += `\n${JSON.stringify(data)}`
+      message += ` ${JSON.stringify(data)}`
     }
 
     debugState.history = [...debugState.history, message]
