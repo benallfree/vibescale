@@ -170,8 +170,8 @@ export class VibescaleServer extends DurableObject<Env> {
   }
 
   private sendMessage<T extends WebSocketMessage>(ws: CloudflareWebSocket, message: T) {
-    // console.log('sendMessage', message)
-    const playerId = this.ctx.getTags(ws)[0]
+    const meta = ws.deserializeAttachment()
+    const playerId = meta?.playerId
     if (!playerId) {
       // console.log('Skipping sendMessage because player ID was not found')
       return
@@ -273,7 +273,8 @@ export class VibescaleServer extends DurableObject<Env> {
   }
 
   async webSocketClose(ws: CloudflareWebSocket, code: number, reason: string, wasClean: boolean) {
-    const playerId = this.ctx.getTags(ws)[0]
+    const meta = ws.deserializeAttachment()
+    const playerId = meta?.playerId
     if (playerId) {
       // console.log('Removing player', playerId, 'from the game')
       await this.ctx.storage.delete(`player:${playerId}`)
@@ -297,7 +298,8 @@ export class VibescaleServer extends DurableObject<Env> {
     // console.log('Broadcasting message to', sockets.length - 1, 'players')
 
     for (const socket of sockets) {
-      const playerId = this.ctx.getTags(socket)[0]
+      const meta = socket.deserializeAttachment()
+      const playerId = meta?.playerId
       if (playerId === excludePlayerId) {
         // console.log('Skipping message to', playerId, 'because it is the sender')
         continue
