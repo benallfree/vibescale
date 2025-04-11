@@ -27,6 +27,26 @@ export const DebugPanel = () => {
     player: null,
   })
 
+  // Helper to format event for display
+  const formatEvent = (event: EmitterEvent<RoomEvents> & { timestamp: string }) => {
+    let message = `[${event.timestamp}] ${event.name}`
+    if (event.data !== undefined) {
+      message += `\n${JSON.stringify(event.data, null, 2)}`
+    }
+    return message
+  }
+
+  // Store the pre element reference
+  const preElement = pre(
+    { class: 'whitespace-pre-wrap break-all max-h-[400px] overflow-y-auto' },
+    () => debugState.history.map(formatEvent).join('\n\n') || 'No events yet...'
+  )
+
+  // Function to scroll to bottom
+  const scrollToBottom = () => {
+    preElement.scrollTop = preElement.scrollHeight
+  }
+
   // Connect to room using client library
   const room = createRoom(appState.roomName, {
     // this will default to the vibescale server that the debug panel is hosted on
@@ -55,6 +75,8 @@ export const DebugPanel = () => {
   // Debug events - capture all events
   room.on('*', (event) => {
     debugState.history = [...debugState.history, { ...event, timestamp: new Date().toISOString() }]
+    // Schedule scroll after the DOM updates
+    setTimeout(scrollToBottom, 0)
   })
 
   // Player events
@@ -87,15 +109,6 @@ export const DebugPanel = () => {
   window.addEventListener('beforeunload', () => {
     room.disconnect()
   })
-
-  // Helper to format event for display
-  const formatEvent = (event: EmitterEvent<RoomEvents> & { timestamp: string }) => {
-    let message = `[${event.timestamp}] ${event.name}`
-    if (event.data !== undefined) {
-      message += `\n${JSON.stringify(event.data, null, 2)}`
-    }
-    return message
-  }
 
   return div(
     { class: 'p-8 space-y-6' },
@@ -158,13 +171,7 @@ export const DebugPanel = () => {
             'Clear'
           )
         ),
-        div(
-          { class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' },
-          pre(
-            { class: 'whitespace-pre-wrap break-all max-h-[400px] overflow-y-auto' },
-            () => debugState.history.map(formatEvent).join('\n\n') || 'No events yet...'
-          )
-        )
+        div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' }, preElement)
       )
     )
   )
