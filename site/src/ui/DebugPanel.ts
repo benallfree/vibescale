@@ -60,14 +60,14 @@ export const DebugPanel = () => {
     const timestamp = new Date().toISOString()
     let message = `[${timestamp}] ${type}`
     if (data) {
-      message += ` ${JSON.stringify(data)}`
+      message += ` ${JSON.stringify(data, null, 2)}`
     }
 
     debugState.history = [...debugState.history, message]
   })
 
   // Player events
-  room.on('playerJoin', (player: PlayerComplete<{}, {}>) => {
+  room.on('player:joined', (player: PlayerComplete<{}, {}>) => {
     if (!debugState.playerId) {
       debugState.playerId = player.id
       // Format the metadata nicely with 2 spaces indentation
@@ -80,12 +80,12 @@ export const DebugPanel = () => {
     debugState.history = [...debugState.history, `[${timestamp}] Player joined: ${player.id}`]
   })
 
-  room.on('playerLeave', (player: PlayerComplete<{}, {}>) => {
+  room.on('player:left', (player: PlayerComplete<{}, {}>) => {
     const timestamp = new Date().toISOString()
     debugState.history = [...debugState.history, `[${timestamp}] Player left: ${player.id}`]
   })
 
-  room.on('playerUpdate', (player: PlayerComplete<{}, {}>) => {
+  room.on('player:updated', (player: PlayerComplete<{}, {}>) => {
     if (player.id === debugState.playerId) {
       // Update the metadata text when our player is updated
       debugState.metadataText = JSON.stringify(player.metadata, null, 2)
@@ -113,7 +113,7 @@ export const DebugPanel = () => {
   const updateMetadata = () => {
     try {
       const metadata = JSON.parse(debugState.metadataText)
-      room.setMetadata(metadata)
+      room.setLocalPlayerMetadata(metadata)
       debugState.hasMetadataError = false
     } catch (e) {
       debugState.hasMetadataError = true
@@ -135,7 +135,7 @@ export const DebugPanel = () => {
         throw new Error('State must have position and rotation as Vector3')
       }
       // Send state update
-      room.setState(state)
+      room.setLocalPlayerState(state)
       debugState.hasStateError = false
     } catch (e) {
       debugState.hasStateError = true
