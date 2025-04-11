@@ -14,7 +14,7 @@ import { JSONEditor } from './components/JSONEditor'
 const { div, h2, pre, code, button } = van.tags
 
 interface DebugState {
-  history: EmitterEvent<RoomEvents>[]
+  history: Array<EmitterEvent<RoomEvents> & { timestamp: string }>
   connectionStatus: 'connecting' | 'connected' | 'disconnected'
   player: Player | null
 }
@@ -54,7 +54,7 @@ export const DebugPanel = () => {
 
   // Debug events - capture all events
   room.on('*', (event) => {
-    debugState.history = [...debugState.history, event]
+    debugState.history = [...debugState.history, { ...event, timestamp: new Date().toISOString() }]
   })
 
   // Player events
@@ -89,9 +89,8 @@ export const DebugPanel = () => {
   })
 
   // Helper to format event for display
-  const formatEvent = (event: EmitterEvent<RoomEvents>) => {
-    const timestamp = new Date().toISOString()
-    let message = `[${timestamp}] ${event.name}`
+  const formatEvent = (event: EmitterEvent<RoomEvents> & { timestamp: string }) => {
+    let message = `[${event.timestamp}] ${event.name}`
     if (event.data !== undefined) {
       message += `\n${JSON.stringify(event.data, null, 2)}`
     }
