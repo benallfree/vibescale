@@ -9,15 +9,14 @@ import {
   type RoomEvents,
 } from 'vibescale'
 import { appState } from '../state'
+import { JSONEditor } from './components/JSONEditor'
 
-const { div, h2, pre, code, textarea, button } = van.tags
+const { div, h2, pre, code, button } = van.tags
 
 interface DebugState {
   history: EmitterEvent<RoomEvents>[]
   connectionStatus: 'connecting' | 'connected' | 'disconnected'
   player: Player | null
-  stateText: string
-  metadataText: string
 }
 
 export const DebugPanel = () => {
@@ -26,15 +25,6 @@ export const DebugPanel = () => {
     history: [],
     connectionStatus: 'connecting',
     player: null,
-    stateText: JSON.stringify(
-      {
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: 0, z: 0 },
-      },
-      null,
-      2
-    ),
-    metadataText: JSON.stringify({}, null, 2),
   })
 
   // Connect to room using client library
@@ -128,66 +118,27 @@ export const DebugPanel = () => {
       ),
       div(
         { class: 'grid grid-cols-2 gap-4' },
-        // State panel
-        div(
-          { class: 'space-y-2' },
-          div({ class: 'font-semibold text-lg' }, 'State'),
-          div(
-            { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
-            textarea({
-              value: () => debugState.stateText,
-              oninput: (e) => {
-                debugState.stateText = (e.target as HTMLTextAreaElement).value
-              },
-              class: 'w-full h-64 font-mono text-sm p-2 rounded',
-              placeholder: 'Enter state JSON (position and rotation)...',
-            }),
-            button(
-              {
-                onclick: () => {
-                  try {
-                    const state = JSON.parse(debugState.stateText)
-                    room.setLocalPlayerDelta(state)
-                  } catch (e) {
-                    console.error('Failed to update state:', e)
-                  }
-                },
-                class: 'btn btn-primary btn-sm w-full',
-              },
-              'Update State'
-            )
-          )
-        ),
-        // Metadata panel
-        div(
-          { class: 'space-y-2' },
-          div({ class: 'font-semibold text-lg' }, 'Metadata'),
-          div(
-            { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
-            textarea({
-              value: () => debugState.metadataText,
-              oninput: (e) => {
-                debugState.metadataText = (e.target as HTMLTextAreaElement).value
-              },
-              class: 'w-full h-64 font-mono text-sm p-2 rounded',
-              placeholder: 'Enter JSON metadata...',
-            }),
-            button(
-              {
-                onclick: () => {
-                  try {
-                    const metadata = JSON.parse(debugState.metadataText)
-                    room.setLocalPlayerMetadata(metadata)
-                  } catch (e) {
-                    console.error('Failed to update metadata:', e)
-                  }
-                },
-                class: 'btn btn-primary btn-sm w-full',
-              },
-              'Update Metadata'
-            )
-          )
-        )
+        // State editor
+        JSONEditor({
+          value: JSON.stringify(
+            {
+              position: { x: 0, y: 0, z: 0 },
+              rotation: { x: 0, y: 0, z: 0 },
+            },
+            null,
+            2
+          ),
+          onUpdate: (state) => room.setLocalPlayerDelta(state),
+          placeholder: 'Enter state JSON (position and rotation)...',
+          label: 'State',
+        }),
+        // Metadata editor
+        JSONEditor({
+          value: JSON.stringify({}, null, 2),
+          onUpdate: (metadata) => room.setLocalPlayerMetadata(metadata),
+          placeholder: 'Enter JSON metadata...',
+          label: 'Metadata',
+        })
       ),
       div(
         { class: 'space-y-2' },
