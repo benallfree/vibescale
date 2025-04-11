@@ -4,7 +4,7 @@ import type {
   PlayerMetadata,
   PlayerState,
   WebSocketMessage,
-} from '../../server/src/templates/network'
+} from '../../site/src/templates/network'
 import { EventEmitter } from './EventEmitter'
 import type { DebugEventType, Room, RoomEvents, RoomOptions } from './types'
 
@@ -102,7 +102,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         }
         players.set(message.id, playerComplete)
         debug('player:id:received', { player: playerComplete })
-        emitter.emit('playerJoin', playerComplete)
+        emitter.emit('player:joined', playerComplete)
         break
 
       case 'player:state':
@@ -122,7 +122,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         }
         players.set(message.player.id, updatedPlayer)
         debug('player:state:updated', { player: updatedPlayer })
-        emitter.emit('playerUpdate', updatedPlayer)
+        emitter.emit('player:updated', updatedPlayer)
         break
 
       case 'player:metadata':
@@ -142,7 +142,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         }
         players.set(message.id, playerWithUpdatedMetadata)
         debug('player:metadata:updated', { player: playerWithUpdatedMetadata })
-        emitter.emit('playerUpdate', playerWithUpdatedMetadata)
+        emitter.emit('player:updated', playerWithUpdatedMetadata)
         break
 
       case 'player:leave':
@@ -154,7 +154,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         if (leavingPlayer) {
           players.delete(message.id)
           debug('player:leave:processed', { player: leavingPlayer })
-          emitter.emit('playerLeave', leavingPlayer)
+          emitter.emit('player:left', leavingPlayer)
         } else {
           debug('message:handle:error', { type: 'player:leave', error: 'Player not found', id: message.id })
         }
@@ -173,7 +173,13 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
     getPlayer: (id: PlayerId) => {
       return players.get(id) || null
     },
-    setMetadata: (metadata: Partial<PlayerMetadata<M>>) => {
+
+    getLocalPlayer: () => {
+      if (!playerId) return null
+      return players.get(playerId) || null
+    },
+
+    setLocalPlayerMetadata: (metadata: Partial<PlayerMetadata<M>>) => {
       if (!playerId || !playerMetadata) return
 
       debug('metadata:update:start', { metadata })
@@ -202,6 +208,40 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         debug('metadata:update:send', { message })
       }
     },
+
+    setLocalPlayerState: (state: Partial<Omit<PlayerState<T>, 'id'>>) => {
+      if (!playerId || !playerState) return
+
+      debug('state:update:start', { state })
+
+      // Update local state
+      playerState = { ...playerState, ...state }
+
+      // Update in players map
+      const currentPlayer = players.get(playerId)
+      if (currentPlayer) {
+        const updatedPlayer = {
+          ...currentPlayer,
+          ...state,
+        }
+        players.set(playerId, updatedPlayer)
+        debug('state:update:local', { player: updatedPlayer })
+      }
+
+      // Send to server
+      if (ws.readyState === WebSocket.OPEN) {
+        const message = {
+          type: 'player:state',
+          player: {
+            id: playerId,
+            ...state,
+          },
+        }
+        ws.send(JSON.stringify(message))
+        debug('state:update:send', { message })
+      }
+    },
+
     disconnect: () => {
       debug('disconnect')
       ws.close()

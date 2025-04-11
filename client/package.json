@@ -37,12 +37,13 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
+    "dev": "chokidar 'src/**/*.ts' -c 'bun run build'",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "chokidar-cli": "^3.0.0",
     "tsup": "^8.0.2",
     "typescript": "^5.0.0"
   },

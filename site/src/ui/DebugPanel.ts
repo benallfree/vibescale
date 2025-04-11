@@ -3,12 +3,16 @@ import { reactive } from 'vanjs-ext'
 import { createRoom, DebugEvent, type PlayerComplete } from 'vibescale'
 import { appState } from '../state'
 
-const { div, h2, pre, code } = van.tags
+const { div, h2, pre, code, textarea, button } = van.tags
 
 interface DebugState {
   history: string[]
   connectionStatus: 'connecting' | 'connected' | 'disconnected'
   playerId: string | null
+  metadataText: string
+  stateText: string
+  hasMetadataError: boolean
+  hasStateError: boolean
 }
 
 export const DebugPanel = () => {
@@ -17,6 +21,17 @@ export const DebugPanel = () => {
     history: [],
     connectionStatus: 'connecting',
     playerId: null,
+    metadataText: '{}',
+    stateText: JSON.stringify(
+      {
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+      },
+      null,
+      2
+    ),
+    hasMetadataError: false,
+    hasStateError: false,
   })
 
   // Connect to room using client library
@@ -55,6 +70,11 @@ export const DebugPanel = () => {
   room.on('playerJoin', (player: PlayerComplete<{}, {}>) => {
     if (!debugState.playerId) {
       debugState.playerId = player.id
+      // Format the metadata nicely with 2 spaces indentation
+      debugState.metadataText = JSON.stringify(player.metadata, null, 2)
+      // Format the state nicely with 2 spaces indentation
+      const { position, rotation } = player
+      debugState.stateText = JSON.stringify({ position, rotation }, null, 2)
     }
     const timestamp = new Date().toISOString()
     debugState.history = [...debugState.history, `[${timestamp}] Player joined: ${player.id}`]
@@ -66,6 +86,13 @@ export const DebugPanel = () => {
   })
 
   room.on('playerUpdate', (player: PlayerComplete<{}, {}>) => {
+    if (player.id === debugState.playerId) {
+      // Update the metadata text when our player is updated
+      debugState.metadataText = JSON.stringify(player.metadata, null, 2)
+      // Update the state text when our player is updated
+      const { position, rotation } = player
+      debugState.stateText = JSON.stringify({ position, rotation }, null, 2)
+    }
     const timestamp = new Date().toISOString()
     debugState.history = [...debugState.history, `[${timestamp}] Player updated: ${player.id}`]
   })
@@ -81,6 +108,40 @@ export const DebugPanel = () => {
   window.addEventListener('beforeunload', () => {
     room.disconnect()
   })
+
+  // Function to update metadata
+  const updateMetadata = () => {
+    try {
+      const metadata = JSON.parse(debugState.metadataText)
+      room.setMetadata(metadata)
+      debugState.hasMetadataError = false
+    } catch (e) {
+      debugState.hasMetadataError = true
+      console.error('Invalid JSON:', e)
+    }
+  }
+
+  // Function to update state
+  const updateState = () => {
+    try {
+      const state = JSON.parse(debugState.stateText)
+      // Validate that state has position and rotation as Vector3
+      if (
+        !state.position ||
+        !state.rotation ||
+        !['x', 'y', 'z'].every((key) => typeof state.position[key] === 'number') ||
+        !['x', 'y', 'z'].every((key) => typeof state.rotation[key] === 'number')
+      ) {
+        throw new Error('State must have position and rotation as Vector3')
+      }
+      // Send state update
+      room.setState(state)
+      debugState.hasStateError = false
+    } catch (e) {
+      debugState.hasStateError = true
+      console.error('Invalid state:', e)
+    }
+  }
 
   return div(
     { class: 'p-8 space-y-6' },
@@ -102,18 +163,77 @@ export const DebugPanel = () => {
       ),
       div(
         { class: 'space-y-2' },
-        div({ class: 'font-semibold text-lg' }, 'Last Event'),
-        pre(
-          { class: 'bg-base-300 p-4 rounded-lg overflow-x-auto' },
-          code(() => {
-            const history = debugState.history
-            return history.length > 0 ? history[history.length - 1] : 'No events yet...'
-          })
+        div({ class: 'font-semibold text-lg' }, 'State'),
+        div(
+          { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
+          textarea({
+            value: () => debugState.stateText,
+            oninput: (e: Event) => {
+              debugState.stateText = (e.target as HTMLTextAreaElement).value
+              try {
+                const state = JSON.parse(debugState.stateText)
+                if (
+                  !state.position ||
+                  !state.rotation ||
+                  !['x', 'y', 'z'].every((key) => typeof state.position[key] === 'number') ||
+                  !['x', 'y', 'z'].every((key) => typeof state.rotation[key] === 'number')
+                ) {
+                  throw new Error('Invalid state format')
+                }
+                debugState.hasStateError = false
+              } catch (e) {
+                debugState.hasStateError = true
+              }
+            },
+            class: () =>
+              `w-full h-32 font-mono text-sm p-2 rounded ${debugState.hasStateError ? 'border-2 border-red-500' : ''}`,
+            placeholder: 'Enter state JSON (position and rotation)...',
+          }),
+          button(
+            {
+              onclick: updateState,
+              class: () => `btn ${debugState.hasStateError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
+              disabled: () => debugState.hasStateError,
+            },
+            () => (debugState.hasStateError ? 'Invalid State Format' : 'Update State')
+          )
         )
       ),
       div(
         { class: 'space-y-2' },
-        div({ class: 'font-semibold text-lg' }, 'Event History'),
+        div({ class: 'font-semibold text-lg' }, 'Metadata'),
+        div(
+          { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
+          textarea({
+            value: () => debugState.metadataText,
+            oninput: (e: Event) => {
+              debugState.metadataText = (e.target as HTMLTextAreaElement).value
+              try {
+                JSON.parse(debugState.metadataText)
+                debugState.hasMetadataError = false
+              } catch (e) {
+                debugState.hasMetadataError = true
+              }
+            },
+            class: () =>
+              `w-full h-32 font-mono text-sm p-2 rounded ${
+                debugState.hasMetadataError ? 'border-2 border-red-500' : ''
+              }`,
+            placeholder: 'Enter JSON metadata...',
+          }),
+          button(
+            {
+              onclick: updateMetadata,
+              class: () => `btn ${debugState.hasMetadataError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
+              disabled: () => debugState.hasMetadataError,
+            },
+            () => (debugState.hasMetadataError ? 'Invalid JSON' : 'Update Metadata')
+          )
+        )
+      ),
+      div(
+        { class: 'space-y-2' },
+        div({ class: 'font-semibold text-lg' }, 'WebSocket Wire History'),
         div(
           { class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' },
           pre(

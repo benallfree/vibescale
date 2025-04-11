@@ -1,6 +1,6 @@
-import type { PlayerComplete, PlayerId, PlayerMetadata } from '../../server/src/templates/network'
+import type { PlayerComplete, PlayerId, PlayerMetadata, PlayerState } from '../../site/src/templates/network'
 
-export * from '../../server/src/templates/network'
+export * from '../../site/src/templates/network'
 
 export type PlayerEventCallback<T = {}, M = {}> = (player: PlayerComplete<T, M>) => void
 
@@ -22,6 +22,9 @@ export type DebugEventType =
   | 'metadata:update:start'
   | 'metadata:update:local'
   | 'metadata:update:send'
+  | 'state:update:start'
+  | 'state:update:local'
+  | 'state:update:send'
   | 'disconnect'
 
 export type DebugEvent = {
@@ -33,9 +36,9 @@ export type DebugEventCallback = (event: DebugEvent) => void
 
 // Define all possible room events and their payload types
 export interface RoomEvents<T = {}, M = {}> {
-  playerUpdate: PlayerComplete<T, M>
-  playerJoin: PlayerComplete<T, M>
-  playerLeave: PlayerComplete<T, M>
+  ['player:updated']: PlayerComplete<T, M>
+  ['player:joined']: PlayerComplete<T, M>
+  ['player:left']: PlayerComplete<T, M>
   debug: DebugEvent
   error: string
   connected: undefined
@@ -52,6 +55,8 @@ export interface Room<T = {}, M = {}> {
   on<E extends keyof RoomEvents<T, M>>(event: E, callback: (payload: RoomEvents<T, M>[E]) => void): () => void
   off<E extends keyof RoomEvents<T, M>>(event: E, callback: (payload: RoomEvents<T, M>[E]) => void): void
   getPlayer: (id: PlayerId) => PlayerComplete<T, M> | null
-  setMetadata: (metadata: Partial<PlayerMetadata<M>>) => void
+  getLocalPlayer: () => PlayerComplete<T, M> | null
+  setLocalPlayerMetadata: (metadata: Partial<PlayerMetadata<M>>) => void
+  setLocalPlayerState: (state: Partial<Omit<PlayerState<T>, 'id'>>) => void
   disconnect: () => void
 }

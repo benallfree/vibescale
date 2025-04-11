@@ -72,7 +72,7 @@ bun run ship
 ```
 src/
 ├── game/      # Core game logic and Three.js implementation
-├── server/    # Cloudflare Worker and Durable Objects
+├── site/      # Vite site, Cloudflare Worker and Durable Objects
 ├── ui/        # User interface components
 ├── controls/  # Game control handlers
 ├── types/     # TypeScript type definitions
