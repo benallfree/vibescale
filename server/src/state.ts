@@ -1,15 +1,17 @@
-import van, { State } from 'vanjs-core'
+import { reactive } from 'vanjs-ext'
+
+type CurrentView = 'home' | 'dashboard'
 
 export interface AppState {
-  roomName: State<string>
-  isValid: State<boolean>
-  currentView: State<string>
-  activeTab: State<string>
+  roomName: string
+  isValid: boolean
+  currentView: CurrentView
+  activeTab: string
 }
 
-export const appState: AppState = {
-  roomName: van.state(''),
-  isValid: van.state(false),
-  currentView: van.state('home'),
-  activeTab: van.state('overview'),
-}
+export const appState = reactive<AppState>({
+  roomName: '',
+  isValid: false,
+  currentView: 'home',
+  activeTab: 'overview',
+})

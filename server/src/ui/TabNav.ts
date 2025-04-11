@@ -16,9 +16,9 @@ export const TabNav = () => {
         li(
           a(
             {
-              href: () => `/${appState.roomName.val}${path}`,
+              href: () => `/${appState.roomName}${path}`,
               'data-navigo': true,
-              class: () => `tab ${appState.activeTab.val === id ? 'tab-active' : ''}`,
+              class: () => `tab ${appState.activeTab === id ? 'tab-active' : ''}`,
             },
             id.charAt(0).toUpperCase() + id.slice(1)
           )

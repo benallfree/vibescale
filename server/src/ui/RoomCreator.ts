@@ -6,7 +6,7 @@ const { div, section, h1, p, label, span, input, button } = van.tags
 // Validation function
 const validateRoomName = (value: string) => {
   const isValid = value.length > 0 && /^[a-zA-Z0-9-]+$/.test(value)
-  appState.isValid.val = isValid
+  appState.isValid = isValid
   return isValid
 }
 
@@ -15,7 +15,7 @@ export const RoomCreator = () => {
     div(
       {
         id: 'validationIndicator',
-        class: () => `absolute right-4 top-1/2 -translate-y-1/2 text-error ${appState.isValid.val ? 'hidden' : ''}`,
+        class: () => `absolute right-4 top-1/2 -translate-y-1/2 text-error ${appState.isValid ? 'hidden' : ''}`,
       },
       '✕'
     )
@@ -56,7 +56,7 @@ export const RoomCreator = () => {
                 oninput: (e: Event) => {
                   const input = e.target as HTMLInputElement
                   input.value = input.value.replace(/[^a-zA-Z0-9-]/g, '')
-                  appState.roomName.val = input.value
+                  appState.roomName = input.value
                   validateRoomName(input.value)
                 },
               }),
@@ -65,11 +65,11 @@ export const RoomCreator = () => {
                 {
                   id: 'generateButton',
                   class: () =>
-                    `btn btn-primary hover:brightness-110 transition-all duration-200 px-6 mt-4 ${!appState.isValid.val ? 'btn-disabled' : ''}`,
+                    `btn btn-primary hover:brightness-110 transition-all duration-200 px-6 mt-4 ${!appState.isValid ? 'btn-disabled' : ''}`,
                   onclick: () => {
-                    if (!appState.isValid.val) return
+                    if (!appState.isValid) return
                     // Use router navigation
-                    window.location.href = `/${appState.roomName.val}`
+                    window.location.href = `/${appState.roomName}`
                   },
                 },
                 span({ class: 'mr-1' }, '＋'),

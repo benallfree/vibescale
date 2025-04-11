@@ -2,6 +2,7 @@ import van from 'vanjs-core'
 import { appState } from '../state'
 import { renderMarkdown } from '../utils/prism'
 import { ClipboardButton } from './ClipboardButton'
+import { DebugPanel } from './DebugPanel'
 import { TabNav } from './TabNav'
 
 const { div, h1, h2, h3, p } = van.tags
@@ -16,19 +17,19 @@ interface DashboardProps {
 
 const generateUrls = (roomName: string) => ({
   http: `https://vibescale.benallfree.com/${roomName}`,
-  ws: `wss://vibescale.benallfree.com/${roomName}`,
+  ws: `wss://vibescale.benallfree.com/${roomName}/websocket`,
 })
 
-const generateRoomInstructions = (roomName: string, instructions: string): string => {
-  return instructions.replace(/{{roomName}}/g, roomName)
+const generateRoomInstructions = (roomName: string, template: string) => {
+  return template.replace(/\{\{roomName\}\}/g, roomName)
 }
 
 const DashboardContent = ({ templates }: DashboardProps) => {
-  const urls = generateUrls(appState.roomName.val)
-  const roomInstructions = generateRoomInstructions(appState.roomName.val, templates.instructions)
+  const urls = generateUrls(appState.roomName)
+  const roomInstructions = generateRoomInstructions(appState.roomName, templates.instructions)
 
   const content = () => {
-    switch (appState.activeTab.val) {
+    switch (appState.activeTab) {
       case 'overview':
         return div(
           { class: 'p-8 space-y-6' },
@@ -86,7 +87,7 @@ const DashboardContent = ({ templates }: DashboardProps) => {
           )
         )
       case 'debug':
-        return div({ class: 'p-4' }, 'Debug Content')
+        return DebugPanel()
       default:
         return div()
     }
@@ -101,7 +102,7 @@ export const Dashboard = ({ templates }: DashboardProps) =>
       { class: 'mb-8' },
       h1(
         { class: 'text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text' },
-        () => `Room: ${appState.roomName.val}`
+        () => `Room: ${appState.roomName}`
       )
     ),
     TabNav(),

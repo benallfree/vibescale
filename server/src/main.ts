@@ -33,9 +33,9 @@ const appContainer = div(
   { id: 'app' },
   div(
     {
-      class: () => (appState.currentView.val === 'home' ? '' : 'mt-16'),
+      class: () => (appState.currentView === 'home' ? '' : 'mt-16'),
     },
-    [() => (appState.currentView.val !== 'home' ? Navbar() : ''), div({ id: 'content' })]
+    [() => (appState.currentView !== 'home' ? Navbar() : ''), div({ id: 'content' })]
   )
 )
 document.body.appendChild(appContainer)

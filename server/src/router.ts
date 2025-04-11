@@ -46,9 +46,9 @@ export const initRouter = (templates: any) => {
 
   // Home/Lander route
   router.on('/', () => {
-    appState.currentView.val = 'home'
-    appState.roomName.val = ''
-    appState.isValid.val = false
+    appState.currentView = 'home'
+    appState.roomName = ''
+    appState.isValid = false
     renderView(div(Hero(), RoomCreator(), Features()))
   })
 
@@ -62,10 +62,10 @@ export const initRouter = (templates: any) => {
           router.navigate('/404')
           return
         }
-        appState.roomName.val = roomName
-        appState.isValid.val = true
-        appState.currentView.val = 'dashboard'
-        appState.activeTab.val = 'overview'
+        appState.roomName = roomName
+        appState.isValid = true
+        appState.currentView = 'dashboard'
+        appState.activeTab = 'overview'
         renderView(Dashboard({ templates }))
       },
     },
@@ -81,10 +81,10 @@ export const initRouter = (templates: any) => {
           router.navigate('/404')
           return
         }
-        appState.roomName.val = roomName
-        appState.isValid.val = true
-        appState.currentView.val = 'dashboard'
-        appState.activeTab.val = 'rag'
+        appState.roomName = roomName
+        appState.isValid = true
+        appState.currentView = 'dashboard'
+        appState.activeTab = 'rag'
         renderView(Dashboard({ templates }))
       },
     },
@@ -100,10 +100,10 @@ export const initRouter = (templates: any) => {
           router.navigate('/404')
           return
         }
-        appState.roomName.val = roomName
-        appState.isValid.val = true
-        appState.currentView.val = 'dashboard'
-        appState.activeTab.val = 'debug'
+        appState.roomName = roomName
+        appState.isValid = true
+        appState.currentView = 'dashboard'
+        appState.activeTab = 'debug'
         renderView(Dashboard({ templates }))
       },
     },
