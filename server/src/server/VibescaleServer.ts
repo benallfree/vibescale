@@ -1,12 +1,15 @@
 import { DurableObject } from 'cloudflare:workers'
 import { text } from 'itty-router'
 import type {
-  PlayerAtRest,
+  PlayerComplete,
   PlayerId,
   PlayerIdMessage,
+  PlayerMetadataMessage,
   PlayerState,
+  RoomName,
   Vector3,
   WebSocketMessage,
+  WsMeta,
 } from '../templates/network'
 import { hasSignificantStateChange } from '../templates/stateChangeDetector'
 
@@ -14,13 +17,6 @@ import { hasSignificantStateChange } from '../templates/stateChangeDetector'
 interface CloudflareWebSocket extends WebSocket {
   serializeAttachment(value: WsMeta): void
   deserializeAttachment(): WsMeta
-}
-
-type RoomName = string
-
-type WsMeta = {
-  playerId: PlayerId
-  roomName: RoomName
 }
 
 export class VibescaleServer extends DurableObject<Env> {
@@ -129,16 +125,15 @@ export class VibescaleServer extends DurableObject<Env> {
     }
     this.sendMessage(cloudflareWs, idMessage)
 
-    const playerAtRest: PlayerAtRest = {
+    const initialPlayer: PlayerComplete = {
       id: playerId,
       position: spawnPosition,
       rotation: { x: 0, y: 0, z: 0 },
       metadata: {
         color,
       },
-      extra: {},
     }
-    await this.savePlayerAtRest(playerId, playerAtRest)
+    await this.savePlayerAtRest(playerId, initialPlayer)
 
     this.sendInitialGameState(roomName, playerId, cloudflareWs)
 
@@ -166,11 +161,11 @@ export class VibescaleServer extends DurableObject<Env> {
     })
   }
 
-  private async loadPlayerAtRest(playerId: PlayerId): Promise<PlayerAtRest | undefined> {
-    return await this.ctx.storage.get<PlayerAtRest>(`player:${playerId}`)
+  private async loadPlayerAtRest(playerId: PlayerId): Promise<PlayerComplete | undefined> {
+    return await this.ctx.storage.get<PlayerComplete>(`player:${playerId}`)
   }
 
-  private async savePlayerAtRest(playerId: PlayerId, playerAtRest: PlayerAtRest) {
+  private async savePlayerAtRest(playerId: PlayerId, playerAtRest: PlayerComplete) {
     await this.ctx.storage.put(`player:${playerId}`, playerAtRest)
   }
 
@@ -221,6 +216,49 @@ export class VibescaleServer extends DurableObject<Env> {
           player: newState,
         }
         this.broadcast(stateUpdate, playerId)
+        break
+
+      case 'player:metadata':
+        if (!data.metadata) {
+          const errorMessage: WebSocketMessage = {
+            type: 'error',
+            message: 'Missing metadata in player:metadata message',
+          }
+          this.sendMessage(ws, errorMessage)
+          return
+        }
+
+        // Load existing player data
+        const player = await this.loadPlayerAtRest(playerId)
+        if (!player) {
+          const errorMessage: WebSocketMessage = {
+            type: 'error',
+            message: 'Player not found',
+          }
+          this.sendMessage(ws, errorMessage)
+          return
+        }
+
+        // Update metadata while preserving the color
+        const updatedMetadata = {
+          ...data.metadata,
+          color: player.metadata.color, // Preserve server-assigned color
+        }
+
+        // Update storage
+        const updatedPlayer = {
+          ...player,
+          metadata: updatedMetadata,
+        }
+        await this.savePlayerAtRest(playerId, updatedPlayer)
+
+        // Broadcast to all clients including the sender
+        const metadataUpdate: PlayerMetadataMessage = {
+          type: 'player:metadata',
+          id: playerId,
+          metadata: updatedMetadata,
+        }
+        this.broadcast(metadataUpdate, '') // Empty string means broadcast to everyone
         break
 
       default:
