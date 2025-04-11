@@ -162,72 +162,77 @@ export const DebugPanel = () => {
         )
       ),
       div(
-        { class: 'space-y-2' },
-        div({ class: 'font-semibold text-lg' }, 'State'),
+        { class: 'grid grid-cols-2 gap-4' },
+        // State panel
         div(
-          { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
-          textarea({
-            value: () => debugState.stateText,
-            oninput: (e: Event) => {
-              debugState.stateText = (e.target as HTMLTextAreaElement).value
-              try {
-                const state = JSON.parse(debugState.stateText)
-                if (
-                  !state.position ||
-                  !state.rotation ||
-                  !['x', 'y', 'z'].every((key) => typeof state.position[key] === 'number') ||
-                  !['x', 'y', 'z'].every((key) => typeof state.rotation[key] === 'number')
-                ) {
-                  throw new Error('Invalid state format')
+          { class: 'space-y-2' },
+          div({ class: 'font-semibold text-lg' }, 'State'),
+          div(
+            { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
+            textarea({
+              value: () => debugState.stateText,
+              oninput: (e: Event) => {
+                debugState.stateText = (e.target as HTMLTextAreaElement).value
+                try {
+                  const state = JSON.parse(debugState.stateText)
+                  if (
+                    !state.position ||
+                    !state.rotation ||
+                    !['x', 'y', 'z'].every((key) => typeof state.position[key] === 'number') ||
+                    !['x', 'y', 'z'].every((key) => typeof state.rotation[key] === 'number')
+                  ) {
+                    throw new Error('Invalid state format')
+                  }
+                  debugState.hasStateError = false
+                } catch (e) {
+                  debugState.hasStateError = true
                 }
-                debugState.hasStateError = false
-              } catch (e) {
-                debugState.hasStateError = true
-              }
-            },
-            class: () =>
-              `w-full h-32 font-mono text-sm p-2 rounded ${debugState.hasStateError ? 'border-2 border-red-500' : ''}`,
-            placeholder: 'Enter state JSON (position and rotation)...',
-          }),
-          button(
-            {
-              onclick: updateState,
-              class: () => `btn ${debugState.hasStateError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
-              disabled: () => debugState.hasStateError,
-            },
-            () => (debugState.hasStateError ? 'Invalid State Format' : 'Update State')
+              },
+              class: () =>
+                `w-full h-64 font-mono text-sm p-2 rounded ${debugState.hasStateError ? 'border-2 border-red-500' : ''}`,
+              placeholder: 'Enter state JSON (position and rotation)...',
+            }),
+            button(
+              {
+                onclick: updateState,
+                class: () => `btn ${debugState.hasStateError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
+                disabled: () => debugState.hasStateError,
+              },
+              () => (debugState.hasStateError ? 'Invalid State Format' : 'Update State')
+            )
           )
-        )
-      ),
-      div(
-        { class: 'space-y-2' },
-        div({ class: 'font-semibold text-lg' }, 'Metadata'),
+        ),
+        // Metadata panel
         div(
-          { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
-          textarea({
-            value: () => debugState.metadataText,
-            oninput: (e: Event) => {
-              debugState.metadataText = (e.target as HTMLTextAreaElement).value
-              try {
-                JSON.parse(debugState.metadataText)
-                debugState.hasMetadataError = false
-              } catch (e) {
-                debugState.hasMetadataError = true
-              }
-            },
-            class: () =>
-              `w-full h-32 font-mono text-sm p-2 rounded ${
-                debugState.hasMetadataError ? 'border-2 border-red-500' : ''
-              }`,
-            placeholder: 'Enter JSON metadata...',
-          }),
-          button(
-            {
-              onclick: updateMetadata,
-              class: () => `btn ${debugState.hasMetadataError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
-              disabled: () => debugState.hasMetadataError,
-            },
-            () => (debugState.hasMetadataError ? 'Invalid JSON' : 'Update Metadata')
+          { class: 'space-y-2' },
+          div({ class: 'font-semibold text-lg' }, 'Metadata'),
+          div(
+            { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
+            textarea({
+              value: () => debugState.metadataText,
+              oninput: (e: Event) => {
+                debugState.metadataText = (e.target as HTMLTextAreaElement).value
+                try {
+                  JSON.parse(debugState.metadataText)
+                  debugState.hasMetadataError = false
+                } catch (e) {
+                  debugState.hasMetadataError = true
+                }
+              },
+              class: () =>
+                `w-full h-64 font-mono text-sm p-2 rounded ${
+                  debugState.hasMetadataError ? 'border-2 border-red-500' : ''
+                }`,
+              placeholder: 'Enter JSON metadata...',
+            }),
+            button(
+              {
+                onclick: updateMetadata,
+                class: () => `btn ${debugState.hasMetadataError ? 'btn-error' : 'btn-primary'} btn-sm w-full`,
+                disabled: () => debugState.hasMetadataError,
+              },
+              () => (debugState.hasMetadataError ? 'Invalid JSON' : 'Update Metadata')
+            )
           )
         )
       ),
