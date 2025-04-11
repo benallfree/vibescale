@@ -20,6 +20,8 @@ interface DebugState {
   player: Player | null
   url: string
   room: Room<Record<string, unknown>, Record<string, unknown>> | null
+  players: Record<string, Player>
+  selectedPlayerId: string | null
 }
 
 export const DebugPanel = () => {
@@ -30,6 +32,8 @@ export const DebugPanel = () => {
     player: null,
     url: `//${window.location.host}/${appState.roomName}`,
     room: null,
+    players: {},
+    selectedPlayerId: null,
   })
 
   // Helper to format event for display
@@ -71,6 +75,8 @@ export const DebugPanel = () => {
     room.on(RoomEventType.Disconnected, () => {
       debugState.connectionStatus = 'disconnected'
       debugState.player = null
+      debugState.players = {}
+      debugState.selectedPlayerId = null
     })
 
     // Debug events - capture all events
@@ -84,18 +90,28 @@ export const DebugPanel = () => {
     room.on(RoomEventType.PlayerJoined, (event: EmitterEvent<RoomEventPayloads>) => {
       if (isPlayerEvent(event)) {
         debugState.player = event.data
+        debugState.players[event.data.id] = event.data
       }
     })
 
     room.on(RoomEventType.PlayerLeft, (event: EmitterEvent<RoomEventPayloads>) => {
-      if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
-        debugState.player = null
+      if (isPlayerEvent(event)) {
+        if (debugState.player?.id === event.data.id) {
+          debugState.player = null
+        }
+        if (debugState.selectedPlayerId === event.data.id) {
+          debugState.selectedPlayerId = null
+        }
+        delete debugState.players[event.data.id]
       }
     })
 
     room.on(RoomEventType.PlayerUpdated, (event: EmitterEvent<RoomEventPayloads>) => {
-      if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
-        debugState.player = event.data
+      if (isPlayerEvent(event)) {
+        if (debugState.player?.id === event.data.id) {
+          debugState.player = event.data
+        }
+        debugState.players[event.data.id] = event.data
       }
     })
 
@@ -170,6 +186,56 @@ export const DebugPanel = () => {
       ),
       div(
         { class: 'grid grid-cols-2 gap-4 mt-4' },
+        // Players Online section
+        div(
+          { class: 'space-y-2' },
+          div(
+            { class: 'flex justify-between items-center' },
+            div(
+              { class: 'font-semibold text-lg flex items-center gap-2' },
+              'Players Online',
+              div({ class: 'badge badge-secondary text-sm' }, () => Object.keys(debugState.players).length.toString())
+            )
+          ),
+          div(
+            { class: 'grid grid-cols-2 gap-4' },
+            // Player list
+            div({ class: 'bg-base-300 p-4 rounded-lg' }, () => {
+              const playerIds = Object.keys(debugState.players)
+              return playerIds.length === 0
+                ? div({ class: 'text-sm text-base-content/50 italic' }, 'No players online...')
+                : div(
+                    { class: 'space-y-2' },
+                    ...playerIds.map((id) =>
+                      div(
+                        {
+                          class: () =>
+                            `p-2 rounded cursor-pointer hover:bg-base-200 ${
+                              debugState.selectedPlayerId === id ? 'bg-base-200' : ''
+                            }`,
+                          onclick: () => {
+                            debugState.selectedPlayerId = id
+                          },
+                        },
+                        code({ class: 'text-xs' }, id)
+                      )
+                    )
+                  )
+            }),
+            // Selected player view
+            div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' }, () => {
+              const selectedPlayer = debugState.selectedPlayerId
+                ? debugState.players[debugState.selectedPlayerId]
+                : null
+              return selectedPlayer
+                ? pre(
+                    { class: 'whitespace-pre-wrap break-all' },
+                    code({ class: 'language-json' }, JSON.stringify(selectedPlayer, null, 2))
+                  )
+                : div({ class: 'text-sm text-base-content/50 italic' }, 'Select a player to view details...')
+            })
+          )
+        ),
         // State editor
         JSONEditor({
           value: JSON.stringify({}, null, 2),
