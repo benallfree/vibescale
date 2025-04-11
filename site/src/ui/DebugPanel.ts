@@ -143,7 +143,11 @@ export const DebugPanel = () => {
         { class: 'space-y-2' },
         div(
           { class: 'flex justify-between items-center' },
-          div({ class: 'font-semibold text-lg' }, 'WebSocket Wire History'),
+          div(
+            { class: 'font-semibold text-lg flex items-center gap-2' },
+            'WebSocket Wire History',
+            div({ class: 'badge badge-secondary text-sm' }, () => debugState.history.length.toString())
+          ),
           button(
             {
               onclick: () => {
