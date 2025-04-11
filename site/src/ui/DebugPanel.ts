@@ -5,26 +5,31 @@ import {
   RoomEventType,
   type EmitterEvent,
   type Player,
+  type Room,
   type RoomEventPayloads,
   type RoomEvents,
 } from 'vibescale'
 import { appState } from '../state'
 import { JSONEditor } from './components/JSONEditor'
 
-const { div, h2, pre, code, button } = van.tags
+const { div, h2, pre, code, button, input } = van.tags
 
 interface DebugState {
   history: Array<EmitterEvent<RoomEvents> & { timestamp: string }>
   connectionStatus: 'connecting' | 'connected' | 'disconnected'
   player: Player | null
+  url: string
+  room: Room<Record<string, unknown>, Record<string, unknown>> | null
 }
 
 export const DebugPanel = () => {
   // Create state
   const debugState = reactive<DebugState>({
     history: [],
-    connectionStatus: 'connecting',
+    connectionStatus: 'disconnected',
     player: null,
+    url: `//${window.location.host}/${appState.roomName}`,
+    room: null,
   })
 
   // Helper to format event for display
@@ -47,11 +52,62 @@ export const DebugPanel = () => {
     preElement.scrollTop = preElement.scrollHeight
   }
 
-  // Connect to room using client library
-  const room = createRoom(appState.roomName, {
-    // this will default to the vibescale server that the debug panel is hosted on
-    endpoint: '',
-  })
+  // Function to connect to room
+  const connectToRoom = () => {
+    if (debugState.room) {
+      debugState.room.disconnect()
+    }
+
+    debugState.connectionStatus = 'connecting'
+    const room = createRoom(appState.roomName, {
+      endpoint: debugState.url,
+    })
+
+    // Connection events
+    room.on(RoomEventType.Connected, () => {
+      debugState.connectionStatus = 'connected'
+    })
+
+    room.on(RoomEventType.Disconnected, () => {
+      debugState.connectionStatus = 'disconnected'
+      debugState.player = null
+    })
+
+    // Debug events - capture all events
+    room.on('*', (event) => {
+      debugState.history = [...debugState.history, { ...event, timestamp: new Date().toISOString() }]
+      // Schedule scroll after the DOM updates
+      setTimeout(scrollToBottom, 0)
+    })
+
+    // Player events
+    room.on(RoomEventType.PlayerJoined, (event: EmitterEvent<RoomEventPayloads>) => {
+      if (isPlayerEvent(event)) {
+        debugState.player = event.data
+      }
+    })
+
+    room.on(RoomEventType.PlayerLeft, (event: EmitterEvent<RoomEventPayloads>) => {
+      if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
+        debugState.player = null
+      }
+    })
+
+    room.on(RoomEventType.PlayerUpdated, (event: EmitterEvent<RoomEventPayloads>) => {
+      if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
+        debugState.player = event.data
+      }
+    })
+
+    // Error events
+    room.on(RoomEventType.Error, (event: EmitterEvent<RoomEventPayloads>) => {
+      if (event.name === RoomEventType.Error) {
+        debugState.connectionStatus = 'disconnected'
+      }
+    })
+
+    debugState.room = room
+  }
 
   // Type guard functions
   function isPlayerEvent(
@@ -62,52 +118,11 @@ export const DebugPanel = () => {
     )
   }
 
-  // Connection events
-  room.on(RoomEventType.Connected, () => {
-    debugState.connectionStatus = 'connected'
-  })
-
-  room.on(RoomEventType.Disconnected, () => {
-    debugState.connectionStatus = 'disconnected'
-    debugState.player = null
-  })
-
-  // Debug events - capture all events
-  room.on('*', (event) => {
-    debugState.history = [...debugState.history, { ...event, timestamp: new Date().toISOString() }]
-    // Schedule scroll after the DOM updates
-    setTimeout(scrollToBottom, 0)
-  })
-
-  // Player events
-  room.on(RoomEventType.PlayerJoined, (event: EmitterEvent<RoomEventPayloads>) => {
-    if (isPlayerEvent(event)) {
-      debugState.player = event.data
-    }
-  })
-
-  room.on(RoomEventType.PlayerLeft, (event: EmitterEvent<RoomEventPayloads>) => {
-    if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
-      debugState.player = null
-    }
-  })
-
-  room.on(RoomEventType.PlayerUpdated, (event: EmitterEvent<RoomEventPayloads>) => {
-    if (isPlayerEvent(event) && debugState.player?.id === event.data.id) {
-      debugState.player = event.data
-    }
-  })
-
-  // Error events
-  room.on(RoomEventType.Error, (event: EmitterEvent<RoomEventPayloads>) => {
-    if (event.name === RoomEventType.Error) {
-      debugState.connectionStatus = 'disconnected'
-    }
-  })
-
   // Cleanup
   window.addEventListener('beforeunload', () => {
-    room.disconnect()
+    if (debugState.room) {
+      debugState.room.disconnect()
+    }
   })
 
   return div(
@@ -115,6 +130,31 @@ export const DebugPanel = () => {
     h2({ class: 'text-2xl font-bold' }, 'Debug Panel'),
     div(
       { class: 'space-y-4' },
+      // URL input and connect button
+      div(
+        { class: 'flex gap-2 items-center' },
+        input({
+          type: 'text',
+          class: 'input input-bordered flex-1',
+          value: debugState.url,
+          oninput: (e) => {
+            debugState.url = (e.target as HTMLInputElement).value
+          },
+        }),
+        button(
+          {
+            class: () => `btn ${debugState.connectionStatus === 'connected' ? 'btn-error' : 'btn-primary'}`,
+            onclick: () => {
+              if (debugState.connectionStatus === 'connected') {
+                debugState.room?.disconnect()
+              } else {
+                connectToRoom()
+              }
+            },
+          },
+          () => (debugState.connectionStatus === 'connected' ? 'Disconnect' : 'Connect')
+        )
+      ),
       div(
         { class: 'space-y-2' },
         div({ class: 'font-semibold text-lg' }, 'Connection Status'),
@@ -132,22 +172,15 @@ export const DebugPanel = () => {
         { class: 'grid grid-cols-2 gap-4' },
         // State editor
         JSONEditor({
-          value: JSON.stringify(
-            {
-              position: { x: 0, y: 0, z: 0 },
-              rotation: { x: 0, y: 0, z: 0 },
-            },
-            null,
-            2
-          ),
-          onUpdate: (state) => room.setLocalPlayerDelta(state),
+          value: JSON.stringify({}, null, 2),
+          onUpdate: (state) => debugState.room?.setLocalPlayerDelta(state),
           placeholder: 'Enter state JSON (position and rotation)...',
           label: 'State',
         }),
         // Metadata editor
         JSONEditor({
           value: JSON.stringify({}, null, 2),
-          onUpdate: (metadata) => room.setLocalPlayerMetadata(metadata),
+          onUpdate: (metadata) => debugState.room?.setLocalPlayerMetadata(metadata),
           placeholder: 'Enter JSON metadata...',
           label: 'Metadata',
         })
