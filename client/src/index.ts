@@ -51,7 +51,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
 
   ws.onmessage = (event) => {
     try {
-      emitter.emit(RoomEventType.Rx, { event })
+      emitter.emit(RoomEventType.Rx, { event: event.data })
       const message = JSON.parse(event.data) as WebSocketMessage<T, M>
       handleRxMessage(message)
     } catch (error) {
@@ -67,7 +67,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
     switch (message.type) {
       case MessageType.Player:
         const player = message.player
-        if (message.isLocal) {
+        if (player.isLocal) {
           playerId = player.id
         }
 

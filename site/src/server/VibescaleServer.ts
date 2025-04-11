@@ -119,13 +119,13 @@ export class VibescaleServer extends DurableObject<Env> {
       server: {
         color,
       },
+      isLocal: true,
     }
 
     // Send the player their ID, color, and spawn position
     this.sendMessage(cloudflareWs, {
       type: MessageType.Player,
       player: initialPlayer,
-      isLocal: true,
     })
 
     await this.savePlayer(initialPlayer)
@@ -144,13 +144,12 @@ export class VibescaleServer extends DurableObject<Env> {
       if (socket.readyState !== WebSocket.OPEN) return
       if (playerId === socket.deserializeAttachment()?.playerId) return
 
-      return this.loadPlayer(playerId).then((playerState) => {
+      return this.loadPlayer(socket.deserializeAttachment()?.playerId).then((playerState) => {
         if (!playerState) return
 
         this.sendMessage(cloudflareWs, {
           type: MessageType.Player,
-          player: playerState,
-          isLocal: false,
+          player: { ...playerState, isLocal: false },
         })
       })
     })
@@ -303,11 +302,11 @@ export class VibescaleServer extends DurableObject<Env> {
         continue
       }
 
-      if ('isLocal' in message && 'id' in message) {
-        const isLocal = message.id === playerId
+      if (message.type === MessageType.Player) {
+        const playerMessage = message as WebSocketMessage & { player: Player }
         this.sendMessage(socket, {
           ...message,
-          isLocal,
+          player: { ...playerMessage.player, isLocal: playerMessage.player.id === playerId },
         })
       } else {
         this.sendMessage(socket, message)

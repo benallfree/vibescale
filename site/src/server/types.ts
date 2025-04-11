@@ -29,6 +29,7 @@ export type Player<T = {}, M = {}> = {
   delta: PlayerDelta<T>
   server: PlayerServerData
   metadata: PlayerMetadata<M>
+  isLocal: boolean
 }
 
 export enum MessageType {
@@ -44,7 +45,6 @@ export enum MessageType {
 export type PlayerMessage<T = {}, M = {}> = {
   type: MessageType.Player
   player: Player<T, M>
-  isLocal: boolean
 }
 
 export type PlayerDeltaMessage<T = {}> = {
