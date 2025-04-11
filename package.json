@@ -29,6 +29,6 @@
   },
   "workspaces": [
     "client",
-    "server"
+    "site"
   ]
 }
