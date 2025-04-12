@@ -4,11 +4,11 @@ import { reactive } from 'vanjs-ext'
 const { div, textarea, button } = van.tags
 
 interface JSONEditorProps {
-  value: string
+  value: string | (() => string)
   onUpdate: (value: any) => void
   placeholder?: string
   label: string
-  readonly?: boolean
+  readonly?: boolean | (() => boolean)
 }
 
 interface JSONEditorState {
@@ -18,9 +18,17 @@ interface JSONEditorState {
 
 export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = false }: JSONEditorProps) => {
   const state = reactive<JSONEditorState>({
-    text: value,
+    text: typeof value === 'function' ? value() : value,
     isValid: true,
   })
+
+  // Update state.text when value changes
+  if (typeof value === 'function') {
+    van.derive(() => {
+      state.text = value()
+      state.isValid = validateJson(value())
+    })
+  }
 
   // Validation function
   const validateJson = (json: string): boolean => {
@@ -32,6 +40,9 @@ export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = fal
     }
   }
 
+  // Get current readonly state
+  const isReadonly = () => (typeof readonly === 'function' ? readonly() : readonly)
+
   return div(
     { class: 'space-y-2' },
     div({ class: 'font-semibold text-lg' }, label),
@@ -42,18 +53,18 @@ export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = fal
         textarea({
           value: () => state.text,
           oninput: (e) => {
-            if (readonly) return
+            if (isReadonly()) return
             const value = (e.target as HTMLTextAreaElement).value
             state.text = value
             state.isValid = validateJson(value)
           },
           class: () => `w-full h-64 font-mono text-sm p-2 rounded ${!state.isValid ? 'border-2 border-error' : ''}`,
           placeholder,
-          readonly,
+          readonly: isReadonly,
         } as Record<string, PropValueOrDerived>),
         () => (state.isValid ? null : div({ class: 'absolute right-2 top-2 text-error text-sm' }, 'Invalid JSON'))
       ),
-      !readonly &&
+      !isReadonly() &&
         button(
           {
             onclick: () => {

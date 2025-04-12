@@ -255,9 +255,9 @@ export const DebugPanel = () => {
         ),
         // Grid with player list and editor
         div(
-          { class: 'grid grid-cols-2 gap-4' },
+          { class: 'grid grid-cols-3 gap-4' },
           // Player list
-          div({ class: 'bg-base-300 p-4 rounded-lg' }, () => {
+          div({ class: 'bg-base-300 p-4 rounded-lg col-span-1' }, () => {
             const playerIds = Object.keys(debugState.remotePlayers)
             if (playerIds.length === 0) {
               return div({ class: 'text-sm text-base-content/50 italic' }, 'No players online...')
@@ -296,13 +296,16 @@ export const DebugPanel = () => {
                       }
                     },
                   },
-                  code({ class: 'text-xs' }, id === debugState.room?.getLocalPlayer()?.id ? `Local (${id})` : id)
+                  code(
+                    { class: 'text-xs' },
+                    id === debugState.room?.getLocalPlayer()?.id ? `Local (${id.slice(-4)})` : id.slice(-4)
+                  )
                 )
               )
             )
           }),
           // Selected player view
-          div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' }, () => {
+          div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm col-span-2' }, () => {
             const selectedPlayer = debugState.selectedPlayerId
               ? debugState.remotePlayers[debugState.selectedPlayerId]
               : null
@@ -330,7 +333,17 @@ export const DebugPanel = () => {
             return div(
               { class: 'space-y-4' },
               JSONEditor({
-                value: JSON.stringify(playerData, null, 2),
+                value: () => {
+                  const rawPlayer = raw(selectedPlayer)
+                  const playerData = {
+                    id: rawPlayer.id,
+                    delta: rawPlayer.delta,
+                    metadata: rawPlayer.metadata,
+                    server: rawPlayer.server,
+                    isLocal: rawPlayer.isLocal,
+                  }
+                  return JSON.stringify(playerData, null, 2)
+                },
                 onUpdate: (value) => {
                   if (isLocalPlayer) {
                     try {
@@ -348,8 +361,6 @@ export const DebugPanel = () => {
                       if (metadata) {
                         debugState.room?.setLocalPlayerMetadata(metadata)
                       }
-
-                      debugState.editorValue = JSON.stringify(value, null, 2)
                     } catch (err) {
                       console.error('Failed to parse or update player data:', err)
                     }
@@ -357,7 +368,7 @@ export const DebugPanel = () => {
                 },
                 placeholder: isLocalPlayer ? 'Enter player data...' : 'Remote player data (read-only)',
                 label: '',
-                readonly: !isLocalPlayer,
+                readonly: () => !isLocalPlayer,
               })
             )
           })
