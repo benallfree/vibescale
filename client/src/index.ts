@@ -24,44 +24,77 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
   let playerId: PlayerId | null = null
   const players = new Map<PlayerId, Player<T, M>>()
 
-  // Initialize WebSocket connection
-  const defaultEndpoint = `https://vibescale.benallfree.com/`
-  nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { defaultEndpoint }))
-  const customEndpoint = options.endpoint
-  nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { customEndpoint }))
-  const wsEndpoint = `${options.endpoint === undefined ? defaultEndpoint : customEndpoint}/websocket`
-  nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { wsEndpoint }))
-  const ws = new WebSocket(wsEndpoint)
+  // WebSocket connection management
+  let ws: WebSocket | null = null
+  let reconnectAttempt = 0
+  const maxReconnectAttempts = 10
+  const baseReconnectDelay = 1000 // Start with 1 second
+  const maxReconnectDelay = 30000 // Cap at 30 seconds
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
+  let isManualDisconnect = false
 
-  // WebSocket event handlers
-  ws.onopen = () => {
-    emitter.emit(RoomEventType.Connected, undefined)
-  }
+  function connect() {
+    // Initialize WebSocket connection
+    const defaultEndpoint = `https://vibescale.benallfree.com/`
+    nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { defaultEndpoint }))
+    const customEndpoint = options.endpoint
+    nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { customEndpoint }))
+    const wsEndpoint = `${options.endpoint === undefined ? defaultEndpoint : customEndpoint}/websocket`
+    nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { wsEndpoint }))
 
-  ws.onclose = () => {
-    if (!playerId) return
-    playerId = null
-    players.clear()
-    emitter.emit(RoomEventType.Disconnected, undefined)
-  }
+    ws = new WebSocket(wsEndpoint)
 
-  ws.onerror = (error) => {
-    emitter.emit(RoomEventType.Error, { message: 'WebSocket error', error })
-  }
+    // WebSocket event handlers
+    ws.onopen = () => {
+      reconnectAttempt = 0 // Reset reconnect counter on successful connection
+      emitter.emit(RoomEventType.Connected, undefined)
+    }
 
-  ws.onmessage = (event) => {
-    try {
-      emitter.emit(RoomEventType.Rx, { event: event.data })
-      const message = JSON.parse(event.data) as WebSocketMessage<T, M>
-      handleRxMessage(message)
-    } catch (error) {
-      emitter.emit(RoomEventType.Error, {
-        message: 'Error parsing server message',
-        error,
-        details: { data: event.data },
-      })
+    ws.onclose = () => {
+      if (!isManualDisconnect && reconnectAttempt < maxReconnectAttempts) {
+        // Calculate delay with exponential backoff
+        const delay = Math.min(Math.pow(2, reconnectAttempt) * baseReconnectDelay, maxReconnectDelay)
+
+        emitter.emit(RoomEventType.Error, {
+          message: 'WebSocket disconnected',
+          error: new Error(`Attempting to reconnect in ${delay / 1000} seconds...`),
+        })
+
+        // Schedule reconnection
+        reconnectTimeout = setTimeout(() => {
+          reconnectAttempt++
+          connect()
+        }, delay)
+      } else {
+        if (playerId) {
+          playerId = null
+          players.clear()
+          emitter.emit(RoomEventType.Disconnected, undefined)
+        }
+      }
+    }
+
+    ws.onerror = (error) => {
+      emitter.emit(RoomEventType.Error, { message: 'WebSocket error', error })
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        emitter.emit(RoomEventType.Rx, { event: event.data })
+        const message = JSON.parse(event.data) as WebSocketMessage<T, M>
+        handleRxMessage(message)
+      } catch (error) {
+        emitter.emit(RoomEventType.Error, {
+          message: 'Error parsing server message',
+          error,
+          details: { data: event.data },
+        })
+      }
     }
   }
+
+  // Initial connection
+  connect()
 
   function handleRxMessage(message: WebSocketMessage<T, M>) {
     switch (message.type) {
@@ -169,7 +202,9 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         metadata: metadata,
       }
       emitter.emit(RoomEventType.Tx, { message })
-      ws.send(JSON.stringify(message))
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message))
+      }
     },
 
     setLocalPlayerDelta: (delta: PlayerDelta<T>) => {
@@ -192,11 +227,21 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         delta,
       }
       emitter.emit(RoomEventType.Tx, { message })
-      ws.send(JSON.stringify(message))
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message))
+      }
     },
 
     disconnect: () => {
-      ws.close()
+      isManualDisconnect = true
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
+        reconnectTimeout = null
+      }
+      if (ws) {
+        ws.close()
+        ws = null
+      }
     },
   }
 
