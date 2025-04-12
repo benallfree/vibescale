@@ -8,6 +8,7 @@ interface JSONEditorProps {
   onUpdate: (value: any) => void
   placeholder?: string
   label: string
+  readonly?: boolean
 }
 
 interface JSONEditorState {
@@ -15,7 +16,7 @@ interface JSONEditorState {
   isValid: boolean
 }
 
-export const JSONEditor = ({ value, onUpdate, placeholder, label }: JSONEditorProps) => {
+export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = false }: JSONEditorProps) => {
   const state = reactive<JSONEditorState>({
     text: value,
     isValid: true,
@@ -41,30 +42,33 @@ export const JSONEditor = ({ value, onUpdate, placeholder, label }: JSONEditorPr
         textarea({
           value: () => state.text,
           oninput: (e) => {
+            if (readonly) return
             const value = (e.target as HTMLTextAreaElement).value
             state.text = value
             state.isValid = validateJson(value)
           },
           class: () => `w-full h-64 font-mono text-sm p-2 rounded ${!state.isValid ? 'border-2 border-error' : ''}`,
           placeholder,
+          readonly,
         } as Record<string, PropValueOrDerived>),
         () => (state.isValid ? null : div({ class: 'absolute right-2 top-2 text-error text-sm' }, 'Invalid JSON'))
       ),
-      button(
-        {
-          onclick: () => {
-            try {
-              const parsed = JSON.parse(state.text)
-              onUpdate(parsed)
-            } catch (e) {
-              console.error('Failed to update:', e)
-            }
+      !readonly &&
+        button(
+          {
+            onclick: () => {
+              try {
+                const parsed = JSON.parse(state.text)
+                onUpdate(parsed)
+              } catch (e) {
+                console.error('Failed to update:', e)
+              }
+            },
+            class: () => `btn btn-primary btn-sm w-full ${!state.isValid ? 'btn-disabled' : ''}`,
+            disabled: () => !state.isValid,
           },
-          class: () => `btn btn-primary btn-sm w-full ${!state.isValid ? 'btn-disabled' : ''}`,
-          disabled: () => !state.isValid,
-        },
-        `Update ${label}`
-      )
+          `Update ${label}`
+        )
     )
   )
 }

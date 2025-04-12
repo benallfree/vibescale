@@ -1,10 +1,11 @@
 import van from 'vanjs-core'
-import { reactive } from 'vanjs-ext'
+import { raw, reactive } from 'vanjs-ext'
 import {
   createRoom,
   RoomEventType,
   type EmitterEvent,
   type Player,
+  type PlayerDelta,
   type Room,
   type RoomEventPayloads,
   type RoomEvents,
@@ -22,6 +23,7 @@ interface DebugState {
   room: Room<Record<string, unknown>, Record<string, unknown>> | null
   remotePlayers: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>
   selectedPlayerId: string | null
+  editorValue: string
 }
 
 export const DebugPanel = () => {
@@ -34,6 +36,7 @@ export const DebugPanel = () => {
     room: null,
     remotePlayers: {},
     selectedPlayerId: null,
+    editorValue: '{}',
   })
 
   // Helper to format event for display
@@ -99,6 +102,15 @@ export const DebugPanel = () => {
         const player = event.data
         if (player.isLocal) {
           debugState.localPlayer = player
+          const rawPlayer = raw(player)
+          const playerData = {
+            id: rawPlayer.id,
+            delta: rawPlayer.delta,
+            metadata: rawPlayer.metadata,
+            server: rawPlayer.server,
+            isLocal: rawPlayer.isLocal,
+          }
+          debugState.editorValue = JSON.stringify(playerData, null, 2)
         }
         debugState.remotePlayers[player.id] = player
       }
@@ -134,8 +146,34 @@ export const DebugPanel = () => {
         const player = event.data
         if (player.isLocal) {
           debugState.localPlayer = player
+          const rawPlayer = raw(player)
+          const playerData = {
+            id: rawPlayer.id,
+            delta: rawPlayer.delta,
+            metadata: rawPlayer.metadata,
+            server: rawPlayer.server,
+            isLocal: rawPlayer.isLocal,
+          }
+          debugState.editorValue = JSON.stringify(playerData, null, 2)
         }
         debugState.remotePlayers[player.id] = player
+
+        // If this is the currently selected player, update their data in the editor
+        if (debugState.selectedPlayerId === player.id) {
+          const selectedPlayer = debugState.remotePlayers[player.id]
+          const rawPlayer = raw(selectedPlayer)
+          const updatedData = {
+            id: rawPlayer.id,
+            delta: rawPlayer.delta,
+            metadata: rawPlayer.metadata,
+            server: rawPlayer.server,
+            isLocal: rawPlayer.isLocal,
+          }
+          if (!selectedPlayer.isLocal) {
+            // Only update non-local player data directly
+            debugState.editorValue = JSON.stringify(updatedData, null, 2)
+          }
+        }
       }
     )
 
@@ -161,7 +199,6 @@ export const DebugPanel = () => {
     h2({ class: 'text-2xl font-bold' }, 'Debug Panel'),
     div(
       { class: 'space-y-4' },
-      // URL input and connect button
       div(
         { class: 'flex items-center gap-4' },
         div(
@@ -202,87 +239,133 @@ export const DebugPanel = () => {
           )
         )
       ),
+      // Players section in grid
       div(
-        { class: 'grid grid-cols-2 gap-4 mt-4' },
-        // Players Online section
+        { class: 'space-y-4' },
+        // Players Online header
         div(
-          { class: 'space-y-2' },
+          { class: 'flex justify-between items-center' },
           div(
-            { class: 'flex justify-between items-center' },
-            div(
-              { class: 'font-semibold text-lg flex items-center gap-2' },
-              'Players Online',
-              div({ class: 'badge badge-secondary text-sm' }, () =>
-                Object.keys(debugState.remotePlayers).length.toString()
-              )
+            { class: 'font-semibold text-lg flex items-center gap-2' },
+            'Players Online',
+            div({ class: 'badge badge-secondary text-sm' }, () =>
+              Object.keys(debugState.remotePlayers).length.toString()
             )
-          ),
-          div(
-            { class: 'grid grid-cols-2 gap-4' },
-            // Player list
-            div({ class: 'bg-base-300 p-4 rounded-lg' }, () => {
-              const playerIds = Object.keys(debugState.remotePlayers)
-              if (playerIds.length === 0) {
-                return div({ class: 'text-sm text-base-content/50 italic' }, 'No players online...')
-              }
-
-              // Sort playerIds to show local player first
-              const sortedPlayerIds = playerIds.sort((a, b) => {
-                const localPlayerId = debugState.room?.getLocalPlayer()?.id
-                if (a === localPlayerId) return -1
-                if (b === localPlayerId) return 1
-                return 0
-              })
-
-              return div(
-                { class: 'space-y-2' },
-                ...sortedPlayerIds.map((id) =>
-                  div(
-                    {
-                      class: () =>
-                        `p-2 rounded cursor-pointer hover:bg-base-200 ${
-                          debugState.selectedPlayerId === id ? 'bg-base-200' : ''
-                        }`,
-                      onclick: () => {
-                        debugState.selectedPlayerId = id
-                      },
-                    },
-                    code({ class: 'text-xs' }, id === debugState.room?.getLocalPlayer()?.id ? `Local (${id})` : id)
-                  )
-                )
-              )
-            }),
-            // Selected player view
-            div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' }, () => {
-              const selectedPlayer = debugState.selectedPlayerId
-                ? debugState.remotePlayers[debugState.selectedPlayerId]
-                : null
-              return selectedPlayer
-                ? pre(
-                    { class: 'whitespace-pre-wrap break-all' },
-                    code({ class: 'language-json' }, JSON.stringify(selectedPlayer, null, 2))
-                  )
-                : div({ class: 'text-sm text-base-content/50 italic' }, 'Select a player to view details...')
-            })
           )
         ),
-        // State editor
-        JSONEditor({
-          value: JSON.stringify({}, null, 2),
-          onUpdate: (state) => debugState.room?.setLocalPlayerDelta(state),
-          placeholder: 'Enter state JSON (position and rotation)...',
-          label: 'State',
-        }),
-        // Metadata editor
-        JSONEditor({
-          value: JSON.stringify({}, null, 2),
-          onUpdate: (metadata) => debugState.room?.setLocalPlayerMetadata(metadata),
-          placeholder: 'Enter JSON metadata...',
-          label: 'Metadata',
-        })
+        // Grid with player list and editor
+        div(
+          { class: 'grid grid-cols-2 gap-4' },
+          // Player list
+          div({ class: 'bg-base-300 p-4 rounded-lg' }, () => {
+            const playerIds = Object.keys(debugState.remotePlayers)
+            if (playerIds.length === 0) {
+              return div({ class: 'text-sm text-base-content/50 italic' }, 'No players online...')
+            }
+
+            // Sort playerIds to show local player first
+            const sortedPlayerIds = playerIds.sort((a, b) => {
+              const localPlayerId = debugState.room?.getLocalPlayer()?.id
+              if (a === localPlayerId) return -1
+              if (b === localPlayerId) return 1
+              return 0
+            })
+
+            return div(
+              { class: 'space-y-2' },
+              ...sortedPlayerIds.map((id) =>
+                div(
+                  {
+                    class: () =>
+                      `p-2 rounded cursor-pointer hover:bg-base-200 ${
+                        debugState.selectedPlayerId === id ? 'bg-base-200' : ''
+                      }`,
+                    onclick: () => {
+                      debugState.selectedPlayerId = id
+                      const selectedPlayer = debugState.remotePlayers[id]
+                      const rawPlayer = raw(selectedPlayer)
+                      const playerData = {
+                        id: rawPlayer.id,
+                        delta: rawPlayer.delta,
+                        metadata: rawPlayer.metadata,
+                        server: rawPlayer.server,
+                        isLocal: rawPlayer.isLocal,
+                      }
+                      if (selectedPlayer.isLocal) {
+                        debugState.editorValue = JSON.stringify(playerData, null, 2)
+                      }
+                    },
+                  },
+                  code({ class: 'text-xs' }, id === debugState.room?.getLocalPlayer()?.id ? `Local (${id})` : id)
+                )
+              )
+            )
+          }),
+          // Selected player view
+          div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' }, () => {
+            const selectedPlayer = debugState.selectedPlayerId
+              ? debugState.remotePlayers[debugState.selectedPlayerId]
+              : null
+
+            if (!selectedPlayer) {
+              return div({ class: 'text-sm text-base-content/50 italic' }, 'Select a player to view details...')
+            }
+
+            console.log('Selected player:', selectedPlayer)
+            // Access the raw values from the reactive object
+            const rawPlayer = raw(selectedPlayer)
+            console.log('Raw player:', rawPlayer)
+
+            const isLocalPlayer = selectedPlayer.isLocal
+            const playerData = {
+              id: rawPlayer.id,
+              delta: rawPlayer.delta,
+              metadata: rawPlayer.metadata,
+              server: rawPlayer.server,
+              isLocal: rawPlayer.isLocal,
+            }
+
+            console.log('Complete player data:', playerData)
+
+            return div(
+              { class: 'space-y-4' },
+              JSONEditor({
+                value: JSON.stringify(playerData, null, 2),
+                onUpdate: (value) => {
+                  if (isLocalPlayer) {
+                    try {
+                      const currentData = value
+                      const player = debugState.localPlayer
+                      if (!player) return
+
+                      // Extract delta and metadata from the complete object
+                      const { delta, metadata } = currentData
+
+                      // Send updates if there are changes
+                      if (delta) {
+                        debugState.room?.setLocalPlayerDelta(delta as PlayerDelta<Record<string, unknown>>)
+                      }
+                      if (metadata) {
+                        debugState.room?.setLocalPlayerMetadata(metadata)
+                      }
+
+                      debugState.editorValue = JSON.stringify(value, null, 2)
+                    } catch (err) {
+                      console.error('Failed to parse or update player data:', err)
+                    }
+                  }
+                },
+                placeholder: isLocalPlayer ? 'Enter player data...' : 'Remote player data (read-only)',
+                label: '',
+                readonly: !isLocalPlayer,
+              })
+            )
+          })
+        )
       ),
+      // WebSocket Wire History as separate full-width section
       div(
-        { class: 'space-y-2' },
+        { class: 'space-y-2 mt-4' },
         div(
           { class: 'flex justify-between items-center' },
           div(
