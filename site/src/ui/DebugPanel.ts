@@ -402,8 +402,12 @@ export const DebugPanel = () => {
         const z = player.delta.position.z * (size / 10) * scale + center
         const rotation = player.delta.rotation?.y || 0
 
+        // Get color from server state or use defaults
+        const serverState = player.server as { color?: string }
+        const color = serverState?.color || (player.isLocal ? '#60A5FA' : '#F87171')
+
         // Draw player triangle
-        drawTriangle(ctx, x, z, rotation, player.isLocal ? '#60A5FA' : '#F87171')
+        drawTriangle(ctx, x, z, rotation, color)
 
         // Draw player ID label
         ctx.save()
