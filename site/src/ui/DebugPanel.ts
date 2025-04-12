@@ -263,11 +263,33 @@ export const DebugPanel = () => {
 
   // Add RadarView component
   const RadarView = () => {
+    // Create container div
+    const container = div({ class: 'w-full max-w-[400px] aspect-square' })
+
     const canvasRef = canvas({
-      width: 400,
-      height: 400,
-      class: 'bg-base-100 rounded-lg',
+      class: 'w-full h-full bg-base-100 rounded-lg',
     })
+
+    // Update canvas size on mount and resize
+    const resizeCanvas = () => {
+      const rect = container.getBoundingClientRect()
+      const size = Math.floor(rect.width)
+      canvasRef.width = size
+      canvasRef.height = size
+      updateRadar()
+    }
+
+    // Set up resize observer
+    const observer = new ResizeObserver(resizeCanvas)
+    observer.observe(container)
+
+    // Cleanup on unmount
+    window.addEventListener('beforeunload', () => {
+      observer.disconnect()
+    })
+
+    // Add canvas to container
+    container.appendChild(canvasRef)
 
     const drawTriangle = (ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number, color: string) => {
       const size = 10 // Triangle size stays constant
@@ -285,37 +307,38 @@ export const DebugPanel = () => {
     }
 
     const drawGrid = (ctx: CanvasRenderingContext2D, scale: number) => {
-      const gridSize = 40 // Base grid size
+      const size = canvasRef.width // Use current canvas size
+      const gridSize = size / 10 // Base grid size (40 was hardcoded before, now relative)
       const scaledGridSize = gridSize * scale
-      const numLines = Math.floor(400 / scaledGridSize)
+      const numLines = Math.floor(size / scaledGridSize)
 
       ctx.strokeStyle = '#4A5568'
       ctx.lineWidth = 0.5
 
       // Draw from center outwards
-      const center = 200
+      const center = size / 2
       for (let i = 0; i <= numLines / 2; i++) {
         // Positive direction
         ctx.beginPath()
         ctx.moveTo(center + i * scaledGridSize, 0)
-        ctx.lineTo(center + i * scaledGridSize, 400)
+        ctx.lineTo(center + i * scaledGridSize, size)
         ctx.stroke()
 
         ctx.beginPath()
         ctx.moveTo(0, center + i * scaledGridSize)
-        ctx.lineTo(400, center + i * scaledGridSize)
+        ctx.lineTo(size, center + i * scaledGridSize)
         ctx.stroke()
 
         // Negative direction
         if (i > 0) {
           ctx.beginPath()
           ctx.moveTo(center - i * scaledGridSize, 0)
-          ctx.lineTo(center - i * scaledGridSize, 400)
+          ctx.lineTo(center - i * scaledGridSize, size)
           ctx.stroke()
 
           ctx.beginPath()
           ctx.moveTo(0, center - i * scaledGridSize)
-          ctx.lineTo(400, center - i * scaledGridSize)
+          ctx.lineTo(size, center - i * scaledGridSize)
           ctx.stroke()
         }
       }
@@ -357,8 +380,9 @@ export const DebugPanel = () => {
       const zRange = Math.abs(maxZ - minZ)
       const maxRange = Math.max(xRange, zRange)
 
-      // Calculate scale to fit in canvas (380 to leave room for labels)
-      const scale = maxRange === 0 ? 1 : 380 / (maxRange * 40)
+      // Calculate scale to fit in canvas (leave room for labels)
+      const canvasSize = canvasRef.width
+      const scale = maxRange === 0 ? 1 : (canvasSize - 20) / (maxRange * (canvasSize / 10))
 
       return { minX, maxX, minZ, maxZ, scale }
     }
@@ -369,11 +393,13 @@ export const DebugPanel = () => {
       bounds: ReturnType<typeof calculateBounds>
     ) => {
       const { scale } = bounds
+      const size = canvasRef.width
+      const center = size / 2
 
       Object.values(players).forEach((player) => {
         // Scale and center the coordinates
-        const x = player.delta.position.x * 40 * scale + 200
-        const z = player.delta.position.z * 40 * scale + 200
+        const x = player.delta.position.x * (size / 10) * scale + center
+        const z = player.delta.position.z * (size / 10) * scale + center
         const rotation = player.delta.rotation?.y || 0
 
         // Draw player triangle
@@ -382,9 +408,9 @@ export const DebugPanel = () => {
         // Draw player ID label
         ctx.save()
         ctx.fillStyle = '#E5E7EB'
-        ctx.font = '10px monospace'
+        ctx.font = `${Math.max(10, size / 40)}px monospace`
         ctx.textAlign = 'center'
-        ctx.fillText(player.id.slice(-4), x, z + 20)
+        ctx.fillText(player.id.slice(-4), x, z + size / 20)
         ctx.restore()
       })
     }
@@ -393,29 +419,32 @@ export const DebugPanel = () => {
       const ctx = canvasRef.getContext('2d')
       if (!ctx) return
 
+      const size = canvasRef.width
+
       // Calculate bounds and scale
       const bounds = calculateBounds(debugState.players)
 
       // Clear canvas
-      ctx.clearRect(0, 0, 400, 400)
+      ctx.clearRect(0, 0, size, size)
 
       // Draw grid with calculated scale
       drawGrid(ctx, bounds.scale)
 
       // Draw center crosshair
+      const center = size / 2
       ctx.strokeStyle = '#9CA3AF'
       ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.moveTo(198, 200)
-      ctx.lineTo(202, 200)
-      ctx.moveTo(200, 198)
-      ctx.lineTo(200, 202)
+      ctx.moveTo(center - 2, center)
+      ctx.lineTo(center + 2, center)
+      ctx.moveTo(center, center - 2)
+      ctx.lineTo(center, center + 2)
       ctx.stroke()
 
       // Draw scale indicator
       ctx.save()
       ctx.fillStyle = '#9CA3AF'
-      ctx.font = '10px monospace'
+      ctx.font = `${Math.max(10, size / 40)}px monospace`
       ctx.textAlign = 'left'
       ctx.fillText(`Scale: ${bounds.scale.toFixed(2)}x`, 10, 20)
       ctx.restore()
@@ -427,21 +456,21 @@ export const DebugPanel = () => {
     // Update radar on state changes
     van.derive(updateRadar)
 
-    return canvasRef
+    return container
   }
 
   return div(
-    { class: 'p-8 space-y-6' },
+    { class: 'p-4 sm:p-8 space-y-6' },
     h2({ class: 'text-2xl font-bold' }, 'Debug Panel'),
     div(
       { class: 'space-y-4' },
       div(
-        { class: 'flex items-center gap-4' },
+        { class: 'flex flex-col sm:flex-row items-start sm:items-center gap-4' },
         div(
-          { class: 'flex items-center gap-2' },
+          { class: 'flex flex-wrap items-center gap-2' },
           input({
             type: 'text',
-            class: 'input input-bordered input-sm w-64',
+            class: 'input input-bordered input-sm w-full sm:w-64',
             value: debugState.url,
             oninput: (e) => {
               debugState.url = (e.target as HTMLInputElement).value
@@ -477,12 +506,9 @@ export const DebugPanel = () => {
           )
         ),
         div(
-          { class: 'flex items-center gap-2' },
+          { class: 'flex flex-wrap items-center gap-2' },
           div({ class: 'font-semibold text-sm' }, 'Status:'),
-          div({ class: 'badge badge-sm badge-primary' }, () => debugState.connectionStatus)
-        ),
-        div(
-          { class: 'flex items-center gap-2' },
+          div({ class: 'badge badge-sm badge-primary' }, () => debugState.connectionStatus),
           div({ class: 'font-semibold text-sm' }, 'Player ID:'),
           code({ class: 'bg-base-300 px-2 py-1 rounded text-xs' }, () =>
             debugState.localPlayer?.id ? debugState.localPlayer.id.slice(-4) : 'Waiting for ID...'
@@ -503,9 +529,9 @@ export const DebugPanel = () => {
         ),
         // Grid with player list and editor
         div(
-          { class: 'grid grid-cols-3 gap-4' },
+          { class: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
           // Player list with fixed height
-          div({ class: 'bg-base-300 p-4 rounded-lg col-span-1 h-[400px] flex flex-col overflow-hidden' }, () => {
+          div({ class: 'bg-base-300 p-4 rounded-lg md:col-span-1 h-[400px] flex flex-col overflow-hidden' }, () => {
             const playerIds = Object.keys(debugState.players)
             if (playerIds.length === 0) {
               return div({ class: 'text-sm text-base-content/50 italic' }, 'No players online...')
@@ -555,7 +581,8 @@ export const DebugPanel = () => {
           // Selected player view with fixed height
           div(
             {
-              class: 'bg-base-300 p-4 rounded-lg font-mono text-sm col-span-2 h-[400px] flex flex-col overflow-hidden',
+              class:
+                'bg-base-300 p-4 rounded-lg font-mono text-sm md:col-span-2 h-[400px] flex flex-col overflow-hidden',
             },
             () => {
               const selectedPlayer = debugState.selectedPlayerId
