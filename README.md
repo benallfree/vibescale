@@ -1,10 +1,25 @@
-# Using yarn
+# Vibescale
 
+Vibescale is an open-source MMO server designed specifically for vibegames. It provides instant, serverless MMO rooms without requiring any server installation. Just vibe your game and forget about servers.
+
+## Quick Start
+
+Visit [vibescale.benallfree.com](https://vibescale.benallfree.com) to instantly create and join MMO game rooms - no server setup required!
+
+## Installation
+
+To use Vibescale in your project:
+
+```bash
+# Using npm
+npm install vibescale
+
+# Using yarn
 yarn add vibescale
 
 # Using bun
-
 bun add vibescale
+```
 
 ## Basic Usage
 
@@ -48,7 +63,7 @@ const gameRoom = createRoom<GameState, GameMetadata>('game-room')
 
 ## Features
 
-- �� **Instant Setup**: No server installation required
+- 🚀 **Instant Setup**: No server installation required
 - 🌐 **Serverless Architecture**: Built on Cloudflare Workers
 - 🔄 **Real-time Sync**: Low-latency state synchronization
 - 🎮 **Game-Ready**: Optimized for multiplayer games
