@@ -60,7 +60,7 @@ export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = fal
           },
           class: () => `w-full h-64 font-mono text-sm p-2 rounded ${!state.isValid ? 'border-2 border-error' : ''}`,
           placeholder,
-          readonly: isReadonly,
+          disabled: isReadonly(),
         } as Record<string, PropValueOrDerived>),
         () => (state.isValid ? null : div({ class: 'absolute right-2 top-2 text-error text-sm' }, 'Invalid JSON'))
       ),
