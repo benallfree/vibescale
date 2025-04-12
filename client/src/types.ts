@@ -12,9 +12,6 @@ export enum RoomEventType {
   Disconnected = 'disconnected',
   Error = 'error',
 
-  // Local player events
-  LocalPlayerJoined = 'local:player:joined',
-
   // Player events
   PlayerJoined = 'player:joined',
   PlayerLeft = 'player:left',
@@ -40,8 +37,6 @@ export interface RoomEventPayloads<T = {}, M = {}> {
   [RoomEventType.Connected]: undefined
   [RoomEventType.Disconnected]: undefined
   [RoomEventType.Error]: { message: string; error: any; details?: any }
-
-  [RoomEventType.LocalPlayerJoined]: Player<T, M>
 
   [RoomEventType.PlayerJoined]: Player<T, M>
   [RoomEventType.PlayerLeft]: Player<T, M>

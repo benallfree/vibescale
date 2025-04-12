@@ -5,7 +5,6 @@ import {
   MessageType,
   type Player,
   type PlayerId,
-  type PlayerMetadataMessage,
   type RoomName,
   type Vector3,
   type WebSocketMessage,
@@ -21,35 +20,49 @@ interface CloudflareWebSocket extends WebSocket {
 export class VibescaleServer extends DurableObject<Env> {
   private readonly POSITION_THRESHOLD = 0.1
   private readonly ROTATION_THRESHOLD = 0.1
-
-  /**
-   * Generates a random color that is visually distinct and visible
-   * Uses HSL color space to ensure good contrast and visibility
-   */
-  private generateRandomColor(): string {
-    // Random hue (0-360)
-    const hue = Math.floor(Math.random() * 360)
-    // Fixed saturation (70-100%) for vibrant colors
-    const saturation = 70 + Math.floor(Math.random() * 30)
-    // Fixed lightness (40-60%) for good visibility
-    const lightness = 40 + Math.floor(Math.random() * 20)
-
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`
-  }
-
-  private generateSpawnPosition(): Vector3 {
-    // Generate a random position in a circle around the center
-    const radius = 5 // Distance from center
-    const angle = Math.random() * Math.PI * 2 // Random angle
-    return {
-      x: Math.cos(angle) * radius,
-      y: 0,
-      z: Math.sin(angle) * radius,
-    }
-  }
+  private readonly wsByRoomName = new Map<RoomName, Set<CloudflareWebSocket>>()
+  private readonly wsMetaByWs = new Map<CloudflareWebSocket, WsMeta>()
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
+    // Initialize maps from existing websockets
+    for (const ws of ctx.getWebSockets()) {
+      const cloudflareWs = ws as CloudflareWebSocket
+      const meta = cloudflareWs.deserializeAttachment()
+      if (!meta?.player || !meta?.roomName) {
+        ws.close(1000, 'Invalid WebSocket attachment')
+        continue
+      }
+
+      this.addWebSocket(cloudflareWs, meta.player, meta.roomName)
+    }
+  }
+
+  private addWebSocket(ws: CloudflareWebSocket, player: Player, roomName: RoomName) {
+    const meta: WsMeta = { player, roomName }
+    this.wsMetaByWs.set(ws, meta)
+    if (!this.wsByRoomName.has(roomName)) {
+      this.wsByRoomName.set(roomName, new Set())
+    }
+    this.wsByRoomName.get(roomName)!.add(ws)
+  }
+
+  private removeWebSocket(ws: CloudflareWebSocket) {
+    const meta = this.wsMetaByWs.get(ws)
+    if (!meta?.player || !meta?.roomName) return
+
+    this.wsMetaByWs.delete(ws)
+    const roomSockets = this.wsByRoomName.get(meta.roomName)
+    if (roomSockets) {
+      roomSockets.delete(ws)
+      if (roomSockets.size === 0) {
+        this.wsByRoomName.delete(meta.roomName)
+      }
+    }
+  }
+
+  private playersOnline(roomName: string) {
+    return this.wsByRoomName.get(roomName)?.size || 0
   }
 
   async fetch(request: Request) {
@@ -78,17 +91,8 @@ export class VibescaleServer extends DurableObject<Env> {
     }
   }
 
-  private playersOnline(roomName: string) {
-    return this.getWebSocketsForRoom(roomName).length
-  }
-
-  private getWebSocketsForRoom(roomName: RoomName): CloudflareWebSocket[] {
-    return this.ctx.getWebSockets().filter((ws) => ws.deserializeAttachment()?.roomName === roomName)
-  }
-
   private async handleWebSocket(request: Request, roomName: RoomName) {
     const upgradeHeader = request.headers.get('Upgrade')
-
     if (!upgradeHeader || upgradeHeader !== 'websocket') {
       return text(`Durable Object expected Upgrade: websocket`, {
         status: 426,
@@ -102,12 +106,6 @@ export class VibescaleServer extends DurableObject<Env> {
     const playerId = crypto.randomUUID()
     const color = this.generateRandomColor()
     const spawnPosition = this.generateSpawnPosition()
-    this.ctx.acceptWebSocket(ws)
-
-    cloudflareWs.serializeAttachment({
-      playerId,
-      roomName,
-    })
 
     const initialPlayer: Player = {
       id: playerId,
@@ -119,18 +117,26 @@ export class VibescaleServer extends DurableObject<Env> {
       server: {
         color,
       },
-      isLocal: true,
+      isLocal: false,
     }
+
+    this.ctx.acceptWebSocket(ws)
+
+    cloudflareWs.serializeAttachment({
+      player: initialPlayer,
+      roomName,
+    })
+
+    this.addWebSocket(cloudflareWs, initialPlayer, roomName)
 
     // Send the player their ID, color, and spawn position
     this.sendMessage(cloudflareWs, {
       type: MessageType.Player,
-      player: initialPlayer,
+      player: { ...initialPlayer, isLocal: true },
     })
 
-    await this.savePlayer(initialPlayer)
-
     this.sendInitialGameState(roomName, playerId, cloudflareWs)
+    this.announcePlayerJoin(roomName, initialPlayer)
 
     return new Response(null, {
       status: 101,
@@ -138,42 +144,34 @@ export class VibescaleServer extends DurableObject<Env> {
     })
   }
 
+  private announcePlayerJoin(roomName: RoomName, player: Player) {
+    this.broadcast(
+      roomName,
+      {
+        type: MessageType.Player,
+        player: { ...player, isLocal: false },
+      },
+      player.id
+    )
+  }
+
   private sendInitialGameState(roomName: RoomName, playerId: PlayerId, cloudflareWs: CloudflareWebSocket) {
-    // Send all existing player states to the new player
-    this.getWebSocketsForRoom(roomName).forEach((socket) => {
+    this.wsByRoomName.get(roomName)?.forEach((socket) => {
       if (socket.readyState !== WebSocket.OPEN) return
-      if (playerId === socket.deserializeAttachment()?.playerId) return
+      const meta = this.wsMetaByWs.get(socket)
+      if (!meta?.player || meta.player.id === playerId) return
 
-      return this.loadPlayer(socket.deserializeAttachment()?.playerId).then((playerState) => {
-        if (!playerState) return
-
-        this.sendMessage(cloudflareWs, {
-          type: MessageType.Player,
-          player: { ...playerState, isLocal: false },
-        })
+      this.sendMessage(cloudflareWs, {
+        type: MessageType.Player,
+        player: { ...meta.player, isLocal: false },
       })
     })
   }
 
-  private async loadPlayer(playerId: PlayerId): Promise<Player | undefined> {
-    return await this.ctx.storage.get<Player>(`player:${playerId}`)
-  }
-
-  private async savePlayer(player: Player) {
-    await this.ctx.storage.put(`player:${player.id}`, player)
-  }
-
   private sendMessage<T extends WebSocketMessage>(ws: CloudflareWebSocket, message: T) {
-    const playerId = ws.deserializeAttachment()?.playerId
-    if (!playerId) {
-      // console.log('Skipping sendMessage because player ID was not found')
-      return
-    }
-    if (ws.readyState !== WebSocket.OPEN) {
-      // console.log('Skipping sendMessage to', playerId, 'because WebSocket is not open')
-      return
-    }
-    // console.log('Sending message to', playerId, message)
+    const meta = this.wsMetaByWs.get(ws)
+    if (!meta?.player) return
+    if (ws.readyState !== WebSocket.OPEN) return
     ws.send(JSON.stringify(message))
   }
 
@@ -184,75 +182,51 @@ export class VibescaleServer extends DurableObject<Env> {
   // Incoming messages from the client
   async webSocketMessage(ws: CloudflareWebSocket, message: string) {
     const data = JSON.parse(message) as WebSocketMessage
-    // console.log('Received message', message)
-    const playerId = ws.deserializeAttachment()?.playerId
-    if (!playerId) {
-      // console.log('Skipping webSocketMessage because player ID was not found')
-      return
-    }
+    const meta = this.wsMetaByWs.get(ws)
+    if (!meta?.player || !meta?.roomName) return
 
     switch (data.type) {
       case MessageType.PlayerDelta: {
-        // console.log('player:state', data)
-        const player = await this.loadPlayer(playerId)
-        if (!player) {
-          const errorMessage: WebSocketMessage = {
-            type: MessageType.Error,
-            message: `Player not found: ${playerId}`,
-          }
-          this.sendMessage(ws, errorMessage)
-          return
-        }
-
         const nextState: Player = {
-          ...player,
+          ...meta.player,
           delta: data.delta,
         }
 
-        // Skip update if no significant change using shared detector
-        if (!hasSignificantStateChange(nextState)) {
+        if (!hasSignificantStateChange(meta.player, nextState)) {
           return
         }
 
-        // Update storage and broadcast
-        await this.savePlayer(nextState)
+        this.savePlayer(ws, nextState)
         this.broadcast(
+          meta.roomName,
           {
             type: MessageType.PlayerDelta,
-            id: playerId,
+            id: meta.player.id,
             delta: data.delta,
           },
-          playerId
+          meta.player.id
         )
         break
       }
 
-      case MessageType.PlayerMetadata:
-        // Load existing player data
-        const player = await this.loadPlayer(playerId)
-        if (!player) {
-          const errorMessage: WebSocketMessage = {
-            type: MessageType.Error,
-            message: `Player not found: ${playerId}`,
-          }
-          this.sendMessage(ws, errorMessage)
-          return
-        }
-
-        // Update storage
-        await this.savePlayer({
-          ...player,
-          metadata: data.metadata,
-        })
-
-        // Broadcast to all clients including the sender
-        const metadataUpdate: PlayerMetadataMessage = {
-          type: MessageType.PlayerMetadata,
-          id: playerId,
+      case MessageType.PlayerMetadata: {
+        const nextState: Player = {
+          ...meta.player,
           metadata: data.metadata,
         }
-        this.broadcast(metadataUpdate, playerId)
+
+        this.savePlayer(ws, nextState)
+        this.broadcast(
+          meta.roomName,
+          {
+            type: MessageType.PlayerMetadata,
+            id: meta.player.id,
+            metadata: data.metadata,
+          },
+          meta.player.id
+        )
         break
+      }
 
       default:
         const errorMessage: WebSocketMessage = {
@@ -266,51 +240,84 @@ export class VibescaleServer extends DurableObject<Env> {
   }
 
   async webSocketClose(ws: CloudflareWebSocket, code: number, reason: string, wasClean: boolean) {
-    const meta = ws.deserializeAttachment()
-    const playerId = meta?.playerId
-    if (playerId) {
-      // console.log('Removing player', playerId, 'from the game')
-      await this.ctx.storage.delete(`player:${playerId}`)
-      // console.log('Removed player', playerId, 'from the game')
+    const meta = this.wsMetaByWs.get(ws)
+    if (!meta?.player || !meta?.roomName) return
 
-      // Notify others of the disconnection
-      this.broadcast(
-        {
-          type: MessageType.PlayerLeave,
-          id: playerId,
-        },
-        playerId
-      )
-    }
+    this.removeWebSocket(ws)
+
+    // Notify others of the disconnection
+    this.broadcast(
+      meta.roomName,
+      {
+        type: MessageType.PlayerLeave,
+        id: meta.player.id,
+      },
+      meta.player.id
+    )
+
     ws.close(code, 'Durable Object is closing WebSocket')
-    // console.log('WebSocket closed', code, reason, wasClean)
   }
 
-  private broadcast(message: WebSocketMessage, excludePlayerId: PlayerId) {
-    const sockets = this.ctx.getWebSockets() as CloudflareWebSocket[]
-    // console.log('Broadcasting message to', sockets.length - 1, 'players')
+  private broadcast(roomName: RoomName, message: WebSocketMessage, excludePlayerId: PlayerId) {
+    const sockets = this.wsByRoomName.get(roomName) || new Set()
 
     for (const socket of sockets) {
-      const meta = socket.deserializeAttachment()
-      const playerId = meta?.playerId
-      if (playerId === excludePlayerId) {
-        // console.log('Skipping message to', playerId, 'because it is the sender')
-        continue
-      }
-      if (socket.readyState !== WebSocket.OPEN) {
-        // console.log('Skipping message to', playerId, 'because WebSocket is not open')
-        continue
-      }
+      const meta = this.wsMetaByWs.get(socket)
+      if (!meta?.player || meta.player.id === excludePlayerId) continue
+      if (socket.readyState !== WebSocket.OPEN) continue
 
       if (message.type === MessageType.Player) {
         const playerMessage = message as WebSocketMessage & { player: Player }
         this.sendMessage(socket, {
           ...message,
-          player: { ...playerMessage.player, isLocal: playerMessage.player.id === playerId },
+          player: { ...playerMessage.player, isLocal: false },
         })
       } else {
         this.sendMessage(socket, message)
       }
     }
+  }
+
+  /**
+   * Generates a random color that is visually distinct and visible
+   * Uses HSL color space to ensure good contrast and visibility
+   */
+  private generateRandomColor(): string {
+    // Random hue (0-360)
+    const hue = Math.floor(Math.random() * 360)
+    // Fixed saturation (70-100%) for vibrant colors
+    const saturation = 70 + Math.floor(Math.random() * 30)
+    // Fixed lightness (40-60%) for good visibility
+    const lightness = 40 + Math.floor(Math.random() * 20)
+
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+  }
+
+  private generateSpawnPosition(): Vector3 {
+    // Generate a random position in a circle around the center
+    const radius = 5 // Distance from center
+    const angle = Math.random() * Math.PI * 2 // Random angle
+    return {
+      x: Math.cos(angle) * radius,
+      y: 0,
+      z: Math.sin(angle) * radius,
+    }
+  }
+
+  private savePlayer(ws: CloudflareWebSocket, player: Player) {
+    const meta = this.wsMetaByWs.get(ws)
+    if (!meta) return
+
+    // Update local cache
+    this.wsMetaByWs.set(ws, {
+      ...meta,
+      player,
+    })
+
+    // Write through to WebSocket metadata
+    ws.serializeAttachment({
+      ...meta,
+      player,
+    })
   }
 }

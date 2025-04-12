@@ -80,6 +80,6 @@ export type WebSocketMessage<T = {}, M = {}> =
 export type RoomName = string
 
 export type WsMeta = {
-  playerId: PlayerId
+  player: Player
   roomName: RoomName
 }
