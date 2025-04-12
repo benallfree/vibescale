@@ -9,7 +9,7 @@ import {
   type Room,
   type RoomEventPayloads,
   type RoomEvents,
-} from 'vibescale'
+} from '../../../client/src'
 import { appState } from '../state'
 import { JSONEditor } from './components/JSONEditor'
 
