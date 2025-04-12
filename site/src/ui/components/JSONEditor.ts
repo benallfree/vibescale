@@ -17,6 +17,16 @@ interface JSONEditorState {
   isValid: boolean
 }
 
+// Validation function
+const validateJson = (json: string): boolean => {
+  try {
+    JSON.parse(json)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const JSONEditor = ({
   value,
   onUpdate,
@@ -36,16 +46,6 @@ export const JSONEditor = ({
       state.text = value()
       state.isValid = validateJson(value())
     })
-  }
-
-  // Validation function
-  const validateJson = (json: string): boolean => {
-    try {
-      JSON.parse(json)
-      return true
-    } catch {
-      return false
-    }
   }
 
   // Get current readonly state

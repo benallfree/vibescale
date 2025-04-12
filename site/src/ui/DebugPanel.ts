@@ -21,7 +21,7 @@ interface DebugState {
   localPlayer: Player<Record<string, unknown>, Record<string, unknown>> | null
   url: string
   room: Room<Record<string, unknown>, Record<string, unknown>> | null
-  remotePlayers: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>
+  players: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>
   selectedPlayerId: string | null
   editorValue: string
   activeTab: 'radar' | 'logs'
@@ -35,7 +35,7 @@ export const DebugPanel = () => {
     localPlayer: null,
     url: `//${window.location.host}/${appState.roomName}`,
     room: null,
-    remotePlayers: {},
+    players: {},
     selectedPlayerId: null,
     editorValue: '{}',
     activeTab: 'radar',
@@ -74,7 +74,7 @@ export const DebugPanel = () => {
     room.on(RoomEventType.Disconnected, () => {
       debugState.connectionStatus = 'disconnected'
       debugState.localPlayer = null
-      debugState.remotePlayers = {}
+      debugState.players = {}
       debugState.selectedPlayerId = null
     })
 
@@ -113,7 +113,7 @@ export const DebugPanel = () => {
           }
           debugState.editorValue = JSON.stringify(playerData, null, 2)
         }
-        debugState.remotePlayers[player.id] = player
+        debugState.players[player.id] = player
       }
     )
 
@@ -132,7 +132,7 @@ export const DebugPanel = () => {
         if (debugState.selectedPlayerId === player.id) {
           debugState.selectedPlayerId = null
         }
-        delete debugState.remotePlayers[player.id]
+        delete debugState.players[player.id]
       }
     )
 
@@ -157,11 +157,11 @@ export const DebugPanel = () => {
           }
           debugState.editorValue = JSON.stringify(playerData, null, 2)
         }
-        debugState.remotePlayers[player.id] = player
+        debugState.players[player.id] = player
 
         // If this is the currently selected player, update their data in the editor
         if (debugState.selectedPlayerId === player.id) {
-          const selectedPlayer = debugState.remotePlayers[player.id]
+          const selectedPlayer = debugState.players[player.id]
           const rawPlayer = raw(selectedPlayer)
           const updatedData = {
             id: rawPlayer.id,
@@ -305,35 +305,31 @@ export const DebugPanel = () => {
       const { scale } = bounds
 
       Object.values(players).forEach((player) => {
-        const rawPlayer = raw(player)
-        const delta = rawPlayer.delta as { position?: { x: number; y: number; z: number }; rotation?: { y: number } }
+        // Scale and center the coordinates
+        const x = player.delta.position.x * 40 * scale + 200
+        const z = player.delta.position.z * 40 * scale + 200
+        const rotation = player.delta.rotation?.y || 0
 
-        if (delta?.position) {
-          // Scale and center the coordinates
-          const x = delta.position.x * 40 * scale + 200
-          const z = delta.position.z * 40 * scale + 200
-          const rotation = delta.rotation?.y || 0
+        // Draw player triangle
+        drawTriangle(ctx, x, z, rotation, player.isLocal ? '#60A5FA' : '#F87171')
 
-          // Draw player triangle
-          drawTriangle(ctx, x, z, rotation, player.isLocal ? '#60A5FA' : '#F87171')
-
-          // Draw player ID label
-          ctx.save()
-          ctx.fillStyle = '#E5E7EB'
-          ctx.font = '10px monospace'
-          ctx.textAlign = 'center'
-          ctx.fillText(rawPlayer.id.slice(-4), x, z + 20)
-          ctx.restore()
-        }
+        // Draw player ID label
+        ctx.save()
+        ctx.fillStyle = '#E5E7EB'
+        ctx.font = '10px monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(player.id.slice(-4), x, z + 20)
+        ctx.restore()
       })
     }
 
     const updateRadar = () => {
+      console.log('updateRadar')
       const ctx = canvasRef.getContext('2d')
       if (!ctx) return
 
       // Calculate bounds and scale
-      const bounds = calculateBounds(debugState.remotePlayers)
+      const bounds = calculateBounds(debugState.players)
 
       // Clear canvas
       ctx.clearRect(0, 0, 400, 400)
@@ -360,7 +356,7 @@ export const DebugPanel = () => {
       ctx.restore()
 
       // Draw players with calculated scale
-      drawPlayers(ctx, debugState.remotePlayers, bounds)
+      drawPlayers(ctx, debugState.players, bounds)
     }
 
     // Update radar on state changes
@@ -422,9 +418,7 @@ export const DebugPanel = () => {
           div(
             { class: 'font-semibold text-lg flex items-center gap-2' },
             'Players Online',
-            div({ class: 'badge badge-secondary text-sm' }, () =>
-              Object.keys(debugState.remotePlayers).length.toString()
-            )
+            div({ class: 'badge badge-secondary text-sm' }, () => Object.keys(debugState.players).length.toString())
           )
         ),
         // Grid with player list and editor
@@ -432,7 +426,7 @@ export const DebugPanel = () => {
           { class: 'grid grid-cols-3 gap-4' },
           // Player list with fixed height
           div({ class: 'bg-base-300 p-4 rounded-lg col-span-1 h-[400px] flex flex-col overflow-hidden' }, () => {
-            const playerIds = Object.keys(debugState.remotePlayers)
+            const playerIds = Object.keys(debugState.players)
             if (playerIds.length === 0) {
               return div({ class: 'text-sm text-base-content/50 italic' }, 'No players online...')
             }
@@ -456,7 +450,7 @@ export const DebugPanel = () => {
                       }`,
                     onclick: () => {
                       debugState.selectedPlayerId = id
-                      const selectedPlayer = debugState.remotePlayers[id]
+                      const selectedPlayer = debugState.players[id]
                       const rawPlayer = raw(selectedPlayer)
                       const playerData = {
                         id: rawPlayer.id,
@@ -485,7 +479,7 @@ export const DebugPanel = () => {
             },
             () => {
               const selectedPlayer = debugState.selectedPlayerId
-                ? debugState.remotePlayers[debugState.selectedPlayerId]
+                ? debugState.players[debugState.selectedPlayerId]
                 : null
 
               if (!selectedPlayer) {
