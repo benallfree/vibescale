@@ -1,6 +1,6 @@
 {
   "name": "vibescale",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "A lightweight TypeScript client for building multiplayer games with Vibescale",
   "keywords": [
@@ -33,7 +33,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "llm.md"
   ],
   "scripts": {
     "build": "tsup",

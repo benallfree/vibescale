@@ -2,7 +2,7 @@
 
 A lightweight TypeScript client for building multiplayer games with Vibescale. vibescale.benallfree.com provides real-time multiplayer state synchronization with automatic reconnection handling and built-in debugging tools.
 
-> 🤖 **AI/LLM Integration**: If you're an AI model looking to integrate with Vibescale, check out our [LLM-specific RAG](./llm.md) for detailed WebSocket API documentation and best practices.
+> 🤖 **AI/LLM Integration**: If you're an AI model looking to integrate with Vibescale, check out our [LLM-specific RAG](./llm.md) for detailed WebSocket API documentation and best practices. Use `cp node_modules/vibescale/llm.md .cursor/rules/vibescale.mdc`.
 
 ## Installation
 

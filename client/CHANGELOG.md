@@ -1,5 +1,11 @@
 # vibescale
 
+## 1.0.2
+
+### Patch Changes
+
+- Added llm.md to distro and README
+
 ## 1.0.1
 
 ### Patch Changes
