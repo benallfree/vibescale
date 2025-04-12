@@ -38,7 +38,7 @@ export const DebugPanel = () => {
     remotePlayers: {},
     selectedPlayerId: null,
     editorValue: '{}',
-    activeTab: 'logs',
+    activeTab: 'radar',
   })
 
   // Helper to format event for display
@@ -431,8 +431,8 @@ export const DebugPanel = () => {
         // Grid with player list and editor
         div(
           { class: 'grid grid-cols-3 gap-4' },
-          // Player list
-          div({ class: 'bg-base-300 p-4 rounded-lg col-span-1' }, () => {
+          // Player list with fixed height
+          div({ class: 'bg-base-300 p-4 rounded-lg col-span-1 h-[400px] flex flex-col overflow-hidden' }, () => {
             const playerIds = Object.keys(debugState.remotePlayers)
             if (playerIds.length === 0) {
               return div({ class: 'text-sm text-base-content/50 italic' }, 'No players online...')
@@ -447,7 +447,7 @@ export const DebugPanel = () => {
             })
 
             return div(
-              { class: 'space-y-2' },
+              { class: 'space-y-2 overflow-y-auto flex-1' },
               ...sortedPlayerIds.map((id) =>
                 div(
                   {
@@ -479,74 +479,74 @@ export const DebugPanel = () => {
               )
             )
           }),
-          // Selected player view
-          div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm col-span-2' }, () => {
-            const selectedPlayer = debugState.selectedPlayerId
-              ? debugState.remotePlayers[debugState.selectedPlayerId]
-              : null
+          // Selected player view with fixed height
+          div(
+            {
+              class: 'bg-base-300 p-4 rounded-lg font-mono text-sm col-span-2 h-[400px] flex flex-col overflow-hidden',
+            },
+            () => {
+              const selectedPlayer = debugState.selectedPlayerId
+                ? debugState.remotePlayers[debugState.selectedPlayerId]
+                : null
 
-            if (!selectedPlayer) {
-              return div({ class: 'text-sm text-base-content/50 italic' }, 'Select a player to view details...')
-            }
+              if (!selectedPlayer) {
+                return div({ class: 'text-sm text-base-content/50 italic' }, 'Select a player to view details...')
+              }
 
-            console.log('Selected player:', selectedPlayer)
-            // Access the raw values from the reactive object
-            const rawPlayer = raw(selectedPlayer)
-            console.log('Raw player:', rawPlayer)
+              const rawPlayer = raw(selectedPlayer)
+              const isLocalPlayer = selectedPlayer.isLocal
+              const playerData = {
+                id: rawPlayer.id,
+                delta: rawPlayer.delta,
+                metadata: rawPlayer.metadata,
+                server: rawPlayer.server,
+                isLocal: rawPlayer.isLocal,
+              }
 
-            const isLocalPlayer = selectedPlayer.isLocal
-            const playerData = {
-              id: rawPlayer.id,
-              delta: rawPlayer.delta,
-              metadata: rawPlayer.metadata,
-              server: rawPlayer.server,
-              isLocal: rawPlayer.isLocal,
-            }
-
-            console.log('Complete player data:', playerData)
-
-            return div(
-              { class: 'space-y-4' },
-              JSONEditor({
-                value: () => {
-                  const rawPlayer = raw(selectedPlayer)
-                  const playerData = {
-                    id: rawPlayer.id,
-                    delta: rawPlayer.delta,
-                    metadata: rawPlayer.metadata,
-                    server: rawPlayer.server,
-                    isLocal: rawPlayer.isLocal,
-                  }
-                  return JSON.stringify(playerData, null, 2)
-                },
-                onUpdate: (value) => {
-                  if (isLocalPlayer) {
-                    try {
-                      const currentData = value
-                      const player = debugState.localPlayer
-                      if (!player) return
-
-                      // Extract delta and metadata from the complete object
-                      const { delta, metadata } = currentData
-
-                      // Send updates if there are changes
-                      if (delta) {
-                        debugState.room?.setLocalPlayerDelta(delta as PlayerDelta<Record<string, unknown>>)
-                      }
-                      if (metadata) {
-                        debugState.room?.setLocalPlayerMetadata(metadata)
-                      }
-                    } catch (err) {
-                      console.error('Failed to parse or update player data:', err)
+              return div(
+                { class: 'flex-1' },
+                JSONEditor({
+                  value: () => {
+                    const rawPlayer = raw(selectedPlayer)
+                    const playerData = {
+                      id: rawPlayer.id,
+                      delta: rawPlayer.delta,
+                      metadata: rawPlayer.metadata,
+                      server: rawPlayer.server,
+                      isLocal: rawPlayer.isLocal,
                     }
-                  }
-                },
-                placeholder: isLocalPlayer ? 'Enter player data...' : 'Remote player data (read-only)',
-                label: '',
-                readonly: () => !isLocalPlayer,
-              })
-            )
-          })
+                    return JSON.stringify(playerData, null, 2)
+                  },
+                  onUpdate: (value) => {
+                    if (isLocalPlayer) {
+                      try {
+                        const currentData = value
+                        const player = debugState.localPlayer
+                        if (!player) return
+
+                        // Extract delta and metadata from the complete object
+                        const { delta, metadata } = currentData
+
+                        // Send updates if there are changes
+                        if (delta) {
+                          debugState.room?.setLocalPlayerDelta(delta as PlayerDelta<Record<string, unknown>>)
+                        }
+                        if (metadata) {
+                          debugState.room?.setLocalPlayerMetadata(metadata)
+                        }
+                      } catch (err) {
+                        console.error('Failed to parse or update player data:', err)
+                      }
+                    }
+                  },
+                  placeholder: isLocalPlayer ? 'Enter player data...' : 'Remote player data (read-only)',
+                  label: '',
+                  readonly: () => !isLocalPlayer,
+                  containerClass: 'h-full flex flex-col',
+                })
+              )
+            }
+          )
         )
       ),
       // Tabs section

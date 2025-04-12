@@ -9,6 +9,7 @@ interface JSONEditorProps {
   placeholder?: string
   label: string
   readonly?: boolean | (() => boolean)
+  containerClass?: string
 }
 
 interface JSONEditorState {
@@ -16,7 +17,14 @@ interface JSONEditorState {
   isValid: boolean
 }
 
-export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = false }: JSONEditorProps) => {
+export const JSONEditor = ({
+  value,
+  onUpdate,
+  placeholder,
+  label,
+  readonly = false,
+  containerClass = '',
+}: JSONEditorProps) => {
   const state = reactive<JSONEditorState>({
     text: typeof value === 'function' ? value() : value,
     isValid: true,
@@ -44,12 +52,12 @@ export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = fal
   const isReadonly = () => (typeof readonly === 'function' ? readonly() : readonly)
 
   return div(
-    { class: 'space-y-2' },
+    { class: `space-y-2 ${containerClass}` },
     div({ class: 'font-semibold text-lg' }, label),
     div(
-      { class: 'bg-base-300 p-4 rounded-lg space-y-2' },
+      { class: 'bg-base-300 p-4 rounded-lg space-y-2 flex-1 flex flex-col' },
       div(
-        { class: 'relative' },
+        { class: 'relative flex-1 flex flex-col' },
         textarea({
           value: () => state.text,
           oninput: (e) => {
@@ -58,7 +66,7 @@ export const JSONEditor = ({ value, onUpdate, placeholder, label, readonly = fal
             state.text = value
             state.isValid = validateJson(value)
           },
-          class: () => `w-full h-64 font-mono text-sm p-2 rounded ${!state.isValid ? 'border-2 border-error' : ''}`,
+          class: () => `w-full flex-1 font-mono text-sm p-2 rounded ${!state.isValid ? 'border-2 border-error' : ''}`,
           placeholder,
           disabled: isReadonly(),
         } as Record<string, PropValueOrDerived>),
