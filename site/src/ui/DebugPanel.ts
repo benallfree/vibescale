@@ -80,6 +80,12 @@ export const DebugPanel = () => {
       debugState.localPlayer = null
       debugState.players = {}
       debugState.selectedPlayerId = null
+      // Stop wandering animation on disconnect
+      if (debugState.wanderAnimationId !== null) {
+        cancelAnimationFrame(debugState.wanderAnimationId)
+        debugState.wanderAnimationId = null
+        debugState.isWandering = false
+      }
     })
 
     // Debug events - capture all events
@@ -132,6 +138,12 @@ export const DebugPanel = () => {
         const player = event.data
         if (debugState.localPlayer?.id === player.id) {
           debugState.localPlayer = null
+          // Stop wandering animation if local player left
+          if (debugState.wanderAnimationId !== null) {
+            cancelAnimationFrame(debugState.wanderAnimationId)
+            debugState.wanderAnimationId = null
+            debugState.isWandering = false
+          }
         }
         if (debugState.selectedPlayerId === player.id) {
           debugState.selectedPlayerId = null
