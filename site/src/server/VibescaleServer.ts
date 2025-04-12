@@ -91,7 +91,7 @@ export class VibescaleServer extends DurableObject<Env> {
     }
   }
 
-  private async handleWebSocket(request: Request, roomName: RoomName) {
+  private handleWebSocket(request: Request, roomName: RoomName) {
     const upgradeHeader = request.headers.get('Upgrade')
     if (!upgradeHeader || upgradeHeader !== 'websocket') {
       return text(`Durable Object expected Upgrade: websocket`, {
@@ -176,7 +176,7 @@ export class VibescaleServer extends DurableObject<Env> {
   }
 
   async webSocketError(ws: CloudflareWebSocket, error: unknown) {
-    // console.log('webSocketError', error)
+    console.log('webSocketError', error)
   }
 
   // Incoming messages from the client
