@@ -25,6 +25,8 @@ interface DebugState {
   selectedPlayerId: string | null
   editorValue: string
   activeTab: 'radar' | 'logs'
+  isWandering: boolean
+  wanderAnimationId: number | null
 }
 
 export const DebugPanel = () => {
@@ -39,6 +41,8 @@ export const DebugPanel = () => {
     selectedPlayerId: null,
     editorValue: '{}',
     activeTab: 'radar',
+    isWandering: false,
+    wanderAnimationId: null,
   })
 
   // Helper to format event for display
@@ -80,7 +84,7 @@ export const DebugPanel = () => {
 
     // Debug events - capture all events
     room.on('*', (event) => {
-      debugState.history = [...debugState.history, { ...event, timestamp: new Date().toISOString() }]
+      debugState.history = [...debugState.history, { ...event, timestamp: new Date().toISOString() }].slice(-1000)
       // Schedule scroll after the DOM updates
       if (debugState.activeTab === 'logs') {
         const logElement = document.querySelector('.debug-logs-pre') as HTMLPreElement
@@ -188,8 +192,70 @@ export const DebugPanel = () => {
     debugState.room = room
   }
 
-  // Cleanup
+  // Wander animation logic
+  const startWandering = () => {
+    if (!debugState.room || debugState.wanderAnimationId !== null || !debugState.localPlayer) return
+
+    let time = 0
+    const radius = 3
+    const speed = 0.002
+
+    // Get current position as center of the pattern
+    const centerPosition = {
+      x: debugState.localPlayer.delta.position.x,
+      y: debugState.localPlayer.delta.position.y,
+      z: debugState.localPlayer.delta.position.z,
+    }
+
+    const animate = () => {
+      time += 1
+
+      // Figure-8 pattern using parametric equations, centered around current position
+      const x = centerPosition.x + radius * Math.sin(time * speed)
+      const z = centerPosition.z + radius * Math.sin(time * speed) * Math.cos(time * speed)
+
+      // Calculate rotation to face the direction of movement
+      const rotation = Math.atan2(Math.cos(time * speed) * Math.sin(time * speed), Math.cos(time * speed * 2))
+
+      // Create the new delta
+      const newDelta = {
+        position: { x, y: centerPosition.y, z },
+        rotation: { x: 0, y: rotation, z: 0 },
+      }
+
+      // Update server
+      debugState.room?.setLocalPlayerDelta(newDelta)
+
+      // Update local state for radar
+      if (debugState.localPlayer) {
+        const playerId = debugState.localPlayer.id
+        const currentPlayer = debugState.players[playerId]
+        if (currentPlayer) {
+          debugState.players[playerId] = {
+            ...currentPlayer,
+            delta: newDelta,
+          }
+        }
+      }
+
+      debugState.wanderAnimationId = requestAnimationFrame(animate)
+    }
+
+    debugState.isWandering = true
+    animate()
+  }
+
+  const stopWandering = () => {
+    if (debugState.wanderAnimationId !== null) {
+      cancelAnimationFrame(debugState.wanderAnimationId)
+      debugState.wanderAnimationId = null
+    }
+    debugState.isWandering = false
+  }
+
+  // Cleanup on unmount
   window.addEventListener('beforeunload', () => {
+    stopWandering()
     if (debugState.room) {
       debugState.room.disconnect()
     }
@@ -324,7 +390,6 @@ export const DebugPanel = () => {
     }
 
     const updateRadar = () => {
-      console.log('updateRadar')
       const ctx = canvasRef.getContext('2d')
       if (!ctx) return
 
@@ -387,6 +452,7 @@ export const DebugPanel = () => {
               class: () => `btn btn-sm ${debugState.connectionStatus === 'connected' ? 'btn-error' : 'btn-primary'}`,
               onclick: () => {
                 if (debugState.connectionStatus === 'connected') {
+                  stopWandering()
                   debugState.room?.disconnect()
                 } else {
                   connectToRoom()
@@ -394,6 +460,20 @@ export const DebugPanel = () => {
               },
             },
             () => (debugState.connectionStatus === 'connected' ? 'Disconnect' : 'Connect')
+          ),
+          button(
+            {
+              class: () =>
+                `btn btn-sm ${debugState.isWandering ? 'btn-error' : 'btn-secondary'} ${debugState.connectionStatus !== 'connected' ? 'btn-disabled' : ''}`,
+              onclick: () => {
+                if (debugState.isWandering) {
+                  stopWandering()
+                } else {
+                  startWandering()
+                }
+              },
+            },
+            () => (debugState.isWandering ? 'Stop Wandering' : 'Start Wandering')
           )
         ),
         div(
