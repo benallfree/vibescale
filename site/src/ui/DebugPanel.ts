@@ -411,7 +411,7 @@ export const DebugPanel = () => {
 
         // Draw player ID label
         ctx.save()
-        ctx.fillStyle = '#E5E7EB'
+        ctx.fillStyle = '#000000'
         ctx.font = `${Math.max(10, size / 40)}px monospace`
         ctx.textAlign = 'center'
         ctx.fillText(player.id.slice(-4), x, z + size / 20)
@@ -575,7 +575,14 @@ export const DebugPanel = () => {
                     },
                   },
                   code(
-                    { class: 'text-xs' },
+                    {
+                      class: 'text-xs',
+                      style: () => {
+                        const player = debugState.players[id]
+                        const color = (player.server as { color?: string })?.color || '#000000'
+                        return `color: ${color}`
+                      },
+                    },
                     id === debugState.room?.getLocalPlayer()?.id ? `Local (${id.slice(-4)})` : id.slice(-4)
                   )
                 )
