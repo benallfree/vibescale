@@ -10,8 +10,6 @@ npm install vibescale
 
 ## Quick Start
 
-### TypeScript Example
-
 ```typescript
 import { createRoom, RoomEventType } from 'vibescale'
 
@@ -19,68 +17,35 @@ import { createRoom, RoomEventType } from 'vibescale'
 const room = createRoom('my-game')
 
 // Easy debugging - listen to all events
-room.on('*', ({ event, payload }) => {
-  console.log('Event:', event, 'Payload:', payload)
+room.on(RoomEventType.Any, ({ type, data }) => {
+  console.log('Event:', type, 'Data:', data)
 })
 
 // Listen for player updates using enum
 room.on(RoomEventType.PlayerUpdated, (player) => {
   console.log('Player updated:', player.id)
-  console.log('Position:', player.position)
-  console.log('Player color:', player.metadata.color)
+  console.log('Position:', player.delta.position)
+  console.log('Rotation:', player.delta.rotation)
+  console.log('Server data:', player.server)
 })
 
 // Handle player joins
 room.on(RoomEventType.PlayerJoined, (player) => {
   console.log('New player:', player.id)
-  console.log('Assigned color:', player.metadata.color)
+  console.log('Server color:', player.server.color)
 })
 
 // Get your own player data
 const localPlayer = room.getLocalPlayer()
 if (localPlayer) {
   console.log('My ID:', localPlayer.id)
-  console.log('My assigned color:', localPlayer.metadata.color)
+  console.log('My server color:', localPlayer.server.color)
 }
 
 // Get another player's data
 const otherPlayer = room.getPlayer('some-player-id')
 if (otherPlayer) {
-  console.log('Other player color:', otherPlayer.metadata.color)
-}
-```
-
-### JavaScript Example
-
-```javascript
-import { createRoom } from 'vibescale'
-
-// Connect to a room
-const room = createRoom('my-game')
-
-// Easy debugging - listen to all events
-room.on('*', ({ event, payload }) => {
-  console.log('Event:', event, 'Payload:', payload)
-})
-
-// Listen for player updates
-room.on('player:updated', (player) => {
-  console.log('Player updated:', player.id)
-  console.log('Position:', player.position)
-  console.log('Player color:', player.metadata.color)
-})
-
-// Handle player joins
-room.on('player:joined', (player) => {
-  console.log('New player:', player.id)
-  console.log('Assigned color:', player.metadata.color)
-})
-
-// Get your own player data
-const localPlayer = room.getLocalPlayer()
-if (localPlayer) {
-  console.log('My ID:', localPlayer.id)
-  console.log('My assigned color:', localPlayer.metadata.color)
+  console.log('Other player color:', otherPlayer.server.color)
 }
 ```
 
@@ -103,16 +68,9 @@ interface RoomOptions {
 ```typescript
 interface Room<T = {}, M = {}> {
   // Event handling
-  on<E extends keyof RoomEvents<T, M>>(
-    event: E | '*',
-    callback: (
-      payload: E extends '*'
-        ? { event: keyof RoomEvents<T, M>; payload: RoomEvents<T, M>[keyof RoomEvents<T, M>] }
-        : RoomEvents<T, M>[E]
-    ) => void
-  ): () => void
+  on<E extends keyof RoomEvents<T, M>>(event: E | '*', callback: (payload: RoomEvents<T, M>[E]) => void): () => void
 
-  off<E extends keyof RoomEvents<T, M>>(event: E | '*', callback: (/* same signature as 'on' */) => void): void
+  off<E extends keyof RoomEvents<T, M>>(event: E | '*', callback: (payload: RoomEvents<T, M>[E]) => void): void
 
   // Player access
   getPlayer: (id: PlayerId) => Player<T, M> | null
@@ -138,6 +96,7 @@ enum RoomEventType {
   WebSocketInfo = 'websocket:info',
   Rx = 'rx',
   Tx = 'tx',
+  Any = '*',
 }
 ```
 
@@ -147,20 +106,20 @@ The room uses a strongly-typed event system. You can listen to specific events o
 
 ```typescript
 // Listen to all events
-room.on('*', ({ event, payload }) => {
-  console.log('Event:', event, 'Payload:', payload)
+room.on(RoomEventType.Any, ({ type, data }) => {
+  console.log('Event:', type, 'Data:', data)
 })
 
 // Listen to specific events
-room.on('player:joined', (player) => {
+room.on(RoomEventType.PlayerJoined, (player) => {
   console.log('Player joined:', player)
 })
 
-room.on('player:updated', (player) => {
+room.on(RoomEventType.PlayerUpdated, (player) => {
   console.log('Player updated:', player)
 })
 
-room.on('error', ({ message, error, details }) => {
+room.on(RoomEventType.Error, ({ message, error, details }) => {
   console.error('Error:', message, error, details)
 })
 ```
@@ -171,22 +130,37 @@ The client provides two methods for updating player data:
 
 - `setLocalPlayerDelta`: Used for frequently changing data like position, rotation, or any game state that updates many times per second. This is optimized for high-frequency updates and should contain only the essential data needed for real-time gameplay.
 
-- `setLocalPlayerMetadata`: Used for infrequently changing data like player name, color, or other static attributes. This is separate from state to avoid sending this data with every state update, reducing network traffic.
+- `setLocalPlayerMetadata`: Used for infrequently changing data that is specific to your game. This is separate from state to avoid sending this data with every state update, reducing network traffic.
 
 For example:
 
 ```typescript
+// Define your custom state and metadata types
+interface GameState {
+  health: number
+  speed: number
+}
+
+interface GameMetadata {
+  username: string
+  level: number
+}
+
+// Create a room with your custom types
+const room = createRoom<GameState, GameMetadata>('my-game')
+
 // Frequently updated state (many times per second)
 room.setLocalPlayerDelta({
   position: { x: 10, y: 5, z: 0 },
   rotation: { x: 0, y: Math.PI / 2, z: 0 },
-  health: 100, // Game state that changes during gameplay
+  health: 100,
+  speed: 5,
 })
 
-// Infrequently updated metadata (occasional updates)
+// Infrequently updated metadata
 room.setLocalPlayerMetadata({
-  color: '#ff0000',
-  avatar: 'warrior', // Static attributes that rarely change
+  username: 'Player1',
+  level: 5,
 })
 ```
 
@@ -202,21 +176,21 @@ interface Vector3 {
 }
 
 interface PlayerDelta<T = {}> {
-  id?: PlayerId
-  position?: Vector3
-  rotation?: Vector3
-} & Partial<T>
+  position: Vector3
+  rotation: Vector3
+} & T
+
+interface PlayerServerData {
+  color: string
+}
 
 interface Player<T = {}, M = {}> {
   id: PlayerId
-  position: Vector3
-  rotation: Vector3
+  delta: PlayerDelta<T>
+  server: PlayerServerData
   metadata: PlayerMetadata<M>
-} & T
-
-interface PlayerMetadata<M = {}> {
-  [key: string]: unknown
-} & M
+  isLocal: boolean
+}
 
 // Event payloads
 interface RoomEventPayloads<T = {}, M = {}> {
@@ -237,7 +211,7 @@ interface RoomEventPayloads<T = {}, M = {}> {
 
 ```typescript
 import * as THREE from 'three'
-import { createRoom } from 'vibescale'
+import { createRoom, RoomEventType } from 'vibescale'
 
 const scene = new THREE.Scene()
 const players = new Map<string, THREE.Mesh>()
@@ -245,29 +219,33 @@ const players = new Map<string, THREE.Mesh>()
 const room = createRoom('three-js-room')
 
 // Handle player updates (state changes)
-room.on('player:updated', (player) => {
+room.on(RoomEventType.PlayerUpdated, (player) => {
   const mesh = players.get(player.id)
   if (mesh) {
-    mesh.position.set(player.position.x, player.position.y, player.position.z)
-    mesh.rotation.set(player.rotation.x, player.rotation.y, player.rotation.z)
+    const pos = player.delta.position
+    const rot = player.delta.rotation
+    mesh.position.set(pos.x, pos.y, pos.z)
+    mesh.rotation.set(rot.x, rot.y, rot.z)
   }
 })
 
 // Handle new players
-room.on('player:joined', (player) => {
+room.on(RoomEventType.PlayerJoined, (player) => {
   const geometry = new THREE.BoxGeometry()
-  const material = new THREE.MeshBasicMaterial({ color: player.metadata.color })
+  const material = new THREE.MeshBasicMaterial({ color: player.server.color })
   const mesh = new THREE.Mesh(geometry, material)
 
-  mesh.position.set(player.position.x, player.position.y, player.position.z)
-  mesh.rotation.set(player.rotation.x, player.rotation.y, player.rotation.z)
+  const pos = player.delta.position
+  const rot = player.delta.rotation
+  mesh.position.set(pos.x, pos.y, pos.z)
+  mesh.rotation.set(rot.x, rot.y, rot.z)
 
   scene.add(mesh)
   players.set(player.id, mesh)
 })
 
 // Handle players leaving
-room.on('player:left', (player) => {
+room.on(RoomEventType.PlayerLeft, (player) => {
   const mesh = players.get(player.id)
   if (mesh) {
     scene.remove(mesh)
@@ -359,6 +337,8 @@ room.on(RoomEventType.PlayerUpdated, (player) => {
 
 // Update with custom state properties
 room.setLocalPlayerDelta({
+  position: { x: 10, y: 5, z: 0 },
+  rotation: { x: 0, y: Math.PI / 2, z: 0 },
   health: 75,
   score: 100,
   powerups: ['speed', 'shield'],
