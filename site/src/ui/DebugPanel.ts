@@ -50,15 +50,9 @@ export const DebugPanel = () => {
     return message
   }
 
-  // Store the pre element reference
-  const preElement = pre(
-    { class: 'whitespace-pre-wrap break-all max-h-[400px] overflow-y-auto' },
-    () => debugState.history.map(formatEvent).join('\n\n') || 'No events yet...'
-  )
-
   // Function to scroll to bottom
-  const scrollToBottom = () => {
-    preElement.scrollTop = preElement.scrollHeight
+  const scrollToBottom = (element: HTMLPreElement) => {
+    element.scrollTop = element.scrollHeight
   }
 
   // Function to connect to room
@@ -88,7 +82,12 @@ export const DebugPanel = () => {
     room.on('*', (event) => {
       debugState.history = [...debugState.history, { ...event, timestamp: new Date().toISOString() }]
       // Schedule scroll after the DOM updates
-      setTimeout(scrollToBottom, 0)
+      if (debugState.activeTab === 'logs') {
+        const logElement = document.querySelector('.debug-logs-pre') as HTMLPreElement
+        if (logElement) {
+          setTimeout(() => scrollToBottom(logElement), 0)
+        }
+      }
     })
 
     // Player events
@@ -602,7 +601,13 @@ export const DebugPanel = () => {
                   'Clear'
                 )
               ),
-              div({ class: 'font-mono text-sm' }, preElement)
+              div(
+                { class: 'font-mono text-sm' },
+                pre(
+                  { class: 'whitespace-pre-wrap break-all max-h-[400px] overflow-y-auto debug-logs-pre' },
+                  () => debugState.history.map(formatEvent).join('\n\n') || 'No events yet...'
+                )
+              )
             )
           }
         })
