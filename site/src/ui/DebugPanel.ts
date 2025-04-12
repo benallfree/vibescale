@@ -523,9 +523,29 @@ export const DebugPanel = () => {
                         // Send updates if there are changes
                         if (delta) {
                           debugState.room?.setLocalPlayerDelta(delta as PlayerDelta<Record<string, unknown>>)
+                          // Update local player in players map
+                          if (player.id) {
+                            const currentPlayer = debugState.players[player.id]
+                            if (currentPlayer) {
+                              debugState.players[player.id] = {
+                                ...currentPlayer,
+                                delta: delta as PlayerDelta<Record<string, unknown>>,
+                              }
+                            }
+                          }
                         }
                         if (metadata) {
                           debugState.room?.setLocalPlayerMetadata(metadata)
+                          // Update local player metadata in players map
+                          if (player.id) {
+                            const currentPlayer = debugState.players[player.id]
+                            if (currentPlayer) {
+                              debugState.players[player.id] = {
+                                ...currentPlayer,
+                                metadata,
+                              }
+                            }
+                          }
                         }
                       } catch (err) {
                         console.error('Failed to parse or update player data:', err)
