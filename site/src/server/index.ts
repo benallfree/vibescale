@@ -20,12 +20,9 @@ const worker = {
     const url = new URL(request.url)
     const path = url.pathname
 
-    console.log('path', path)
-
     const [junk, roomName] = path.split('/')
 
     if (roomName) {
-      console.log('roomName', roomName)
       const id = env.VIBESCALE.idFromName(roomName)
       const stub = env.VIBESCALE.get(id)
       return stub.fetch(request)

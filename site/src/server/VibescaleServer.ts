@@ -66,9 +66,9 @@ export class VibescaleServer extends DurableObject<Env> {
   }
 
   async fetch(request: Request) {
-    console.log('fetch', request.url)
+    // console.log('fetch', request.url)
     const parsed = new URL(request.url)
-    console.log('parsed', parsed)
+    // console.log('parsed', parsed)
     const [roomName, command] = parsed.pathname.split('/').filter(Boolean)
     if (!roomName) {
       return text(`Expected room name`, {
@@ -76,8 +76,8 @@ export class VibescaleServer extends DurableObject<Env> {
       })
     }
 
-    console.log('roomName', roomName)
-    console.log('command', command)
+    // console.log('roomName', roomName)
+    // console.log('command', command)
 
     switch (command) {
       case 'websocket':
