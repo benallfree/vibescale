@@ -24,6 +24,7 @@ interface DebugState {
   remotePlayers: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>
   selectedPlayerId: string | null
   editorValue: string
+  activeTab: 'radar' | 'logs'
 }
 
 export const DebugPanel = () => {
@@ -37,6 +38,7 @@ export const DebugPanel = () => {
     remotePlayers: {},
     selectedPlayerId: null,
     editorValue: '{}',
+    activeTab: 'logs',
   })
 
   // Helper to format event for display
@@ -373,27 +375,59 @@ export const DebugPanel = () => {
           })
         )
       ),
-      // WebSocket Wire History as separate full-width section
+      // Tabs section
       div(
         { class: 'space-y-2 mt-4' },
+        // Tab buttons
         div(
-          { class: 'flex justify-between items-center' },
-          div(
-            { class: 'font-semibold text-lg flex items-center gap-2' },
-            'WebSocket Wire History',
-            div({ class: 'badge badge-secondary text-sm' }, () => debugState.history.length.toString())
+          { class: 'flex gap-2' },
+          button(
+            {
+              class: () => `btn btn-sm ${debugState.activeTab === 'radar' ? 'btn-primary' : 'btn-ghost'}`,
+              onclick: () => {
+                debugState.activeTab = 'radar'
+              },
+            },
+            'Radar'
           ),
           button(
             {
+              class: () => `btn btn-sm ${debugState.activeTab === 'logs' ? 'btn-primary' : 'btn-ghost'}`,
               onclick: () => {
-                debugState.history = []
+                debugState.activeTab = 'logs'
               },
-              class: 'btn btn-sm btn-ghost',
             },
-            'Clear'
+            div(
+              { class: 'flex items-center gap-2' },
+              'Logs',
+              div({ class: 'badge badge-sm' }, () => debugState.history.length.toString())
+            )
           )
         ),
-        div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm' }, preElement)
+        // Tab content
+        div({ class: 'bg-base-300 p-4 rounded-lg' }, () => {
+          if (debugState.activeTab === 'radar') {
+            return div({ class: 'text-sm text-base-content/50 italic' }, 'Radar view coming soon...')
+          } else {
+            return div(
+              { class: 'space-y-2' },
+              div(
+                { class: 'flex justify-between items-center' },
+                div({ class: 'font-semibold text-lg flex items-center gap-2' }),
+                button(
+                  {
+                    onclick: () => {
+                      debugState.history = []
+                    },
+                    class: 'btn btn-sm btn-ghost',
+                  },
+                  'Clear'
+                )
+              ),
+              div({ class: 'font-mono text-sm' }, preElement)
+            )
+          }
+        })
       )
     )
   )
