@@ -233,9 +233,8 @@ export const DebugPanel = () => {
         div(
           { class: 'flex items-center gap-2' },
           div({ class: 'font-semibold text-sm' }, 'Player ID:'),
-          code(
-            { class: 'bg-base-300 px-2 py-1 rounded text-xs' },
-            () => debugState.localPlayer?.id || 'Waiting for ID...'
+          code({ class: 'bg-base-300 px-2 py-1 rounded text-xs' }, () =>
+            debugState.localPlayer?.id ? debugState.localPlayer.id.slice(-4) : 'Waiting for ID...'
           )
         )
       ),
