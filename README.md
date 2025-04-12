@@ -1,4 +1,4 @@
-# Vibescale
+# 🌊 Vibescale
 
 Vibescale is an open-source MMO server designed specifically for vibegames. It provides instant, serverless MMO rooms without requiring any server installation. Just vibe your game and forget about servers.
 

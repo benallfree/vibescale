@@ -40,6 +40,7 @@
     "@types/prismjs": "^1.26.5",
     "@types/three": "^0.175.0",
     "daisyui": "^5.0.19",
+    "dotenv": "^16.5.0",
     "itty-router": "^5.0.18",
     "marked": "^15.0.8",
     "navigo": "^8.11.1",
