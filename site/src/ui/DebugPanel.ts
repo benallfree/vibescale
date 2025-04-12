@@ -13,7 +13,7 @@ import {
 import { appState } from '../state'
 import { JSONEditor } from './components/JSONEditor'
 
-const { div, h2, pre, code, button, input } = van.tags
+const { div, h2, pre, code, button, input, canvas } = van.tags
 
 interface DebugState {
   history: Array<EmitterEvent<RoomEvents> & { timestamp: string }>
@@ -195,6 +195,180 @@ export const DebugPanel = () => {
       debugState.room.disconnect()
     }
   })
+
+  // Add RadarView component
+  const RadarView = () => {
+    const canvasRef = canvas({
+      width: 400,
+      height: 400,
+      class: 'bg-base-100 rounded-lg',
+    })
+
+    const drawTriangle = (ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number, color: string) => {
+      const size = 10 // Triangle size stays constant
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.rotate(rotation)
+      ctx.beginPath()
+      ctx.moveTo(0, -size)
+      ctx.lineTo(-size / 2, size)
+      ctx.lineTo(size / 2, size)
+      ctx.closePath()
+      ctx.fillStyle = color
+      ctx.fill()
+      ctx.restore()
+    }
+
+    const drawGrid = (ctx: CanvasRenderingContext2D, scale: number) => {
+      const gridSize = 40 // Base grid size
+      const scaledGridSize = gridSize * scale
+      const numLines = Math.floor(400 / scaledGridSize)
+
+      ctx.strokeStyle = '#4A5568'
+      ctx.lineWidth = 0.5
+
+      // Draw from center outwards
+      const center = 200
+      for (let i = 0; i <= numLines / 2; i++) {
+        // Positive direction
+        ctx.beginPath()
+        ctx.moveTo(center + i * scaledGridSize, 0)
+        ctx.lineTo(center + i * scaledGridSize, 400)
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.moveTo(0, center + i * scaledGridSize)
+        ctx.lineTo(400, center + i * scaledGridSize)
+        ctx.stroke()
+
+        // Negative direction
+        if (i > 0) {
+          ctx.beginPath()
+          ctx.moveTo(center - i * scaledGridSize, 0)
+          ctx.lineTo(center - i * scaledGridSize, 400)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.moveTo(0, center - i * scaledGridSize)
+          ctx.lineTo(400, center - i * scaledGridSize)
+          ctx.stroke()
+        }
+      }
+    }
+
+    const calculateBounds = (players: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>) => {
+      let minX = 0,
+        maxX = 0,
+        minZ = 0,
+        maxZ = 0
+      let hasPlayers = false
+
+      Object.values(players).forEach((player) => {
+        const rawPlayer = raw(player)
+        const delta = rawPlayer.delta as { position?: { x: number; y: number; z: number } }
+
+        if (delta?.position) {
+          hasPlayers = true
+          minX = Math.min(minX, delta.position.x)
+          maxX = Math.max(maxX, delta.position.x)
+          minZ = Math.min(minZ, delta.position.z)
+          maxZ = Math.max(maxZ, delta.position.z)
+        }
+      })
+
+      if (!hasPlayers) {
+        return { minX: -5, maxX: 5, minZ: -5, maxZ: 5, scale: 1 }
+      }
+
+      // Add padding to bounds
+      const padding = 2
+      minX -= padding
+      maxX += padding
+      minZ -= padding
+      maxZ += padding
+
+      // Calculate scale to fit all players
+      const xRange = Math.abs(maxX - minX)
+      const zRange = Math.abs(maxZ - minZ)
+      const maxRange = Math.max(xRange, zRange)
+
+      // Calculate scale to fit in canvas (380 to leave room for labels)
+      const scale = maxRange === 0 ? 1 : 380 / (maxRange * 40)
+
+      return { minX, maxX, minZ, maxZ, scale }
+    }
+
+    const drawPlayers = (
+      ctx: CanvasRenderingContext2D,
+      players: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>,
+      bounds: ReturnType<typeof calculateBounds>
+    ) => {
+      const { scale } = bounds
+
+      Object.values(players).forEach((player) => {
+        const rawPlayer = raw(player)
+        const delta = rawPlayer.delta as { position?: { x: number; y: number; z: number }; rotation?: { y: number } }
+
+        if (delta?.position) {
+          // Scale and center the coordinates
+          const x = delta.position.x * 40 * scale + 200
+          const z = delta.position.z * 40 * scale + 200
+          const rotation = delta.rotation?.y || 0
+
+          // Draw player triangle
+          drawTriangle(ctx, x, z, rotation, player.isLocal ? '#60A5FA' : '#F87171')
+
+          // Draw player ID label
+          ctx.save()
+          ctx.fillStyle = '#E5E7EB'
+          ctx.font = '10px monospace'
+          ctx.textAlign = 'center'
+          ctx.fillText(rawPlayer.id.slice(-4), x, z + 20)
+          ctx.restore()
+        }
+      })
+    }
+
+    const updateRadar = () => {
+      const ctx = canvasRef.getContext('2d')
+      if (!ctx) return
+
+      // Calculate bounds and scale
+      const bounds = calculateBounds(debugState.remotePlayers)
+
+      // Clear canvas
+      ctx.clearRect(0, 0, 400, 400)
+
+      // Draw grid with calculated scale
+      drawGrid(ctx, bounds.scale)
+
+      // Draw center crosshair
+      ctx.strokeStyle = '#9CA3AF'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(198, 200)
+      ctx.lineTo(202, 200)
+      ctx.moveTo(200, 198)
+      ctx.lineTo(200, 202)
+      ctx.stroke()
+
+      // Draw scale indicator
+      ctx.save()
+      ctx.fillStyle = '#9CA3AF'
+      ctx.font = '10px monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText(`Scale: ${bounds.scale.toFixed(2)}x`, 10, 20)
+      ctx.restore()
+
+      // Draw players with calculated scale
+      drawPlayers(ctx, debugState.remotePlayers, bounds)
+    }
+
+    // Update radar on state changes
+    van.derive(updateRadar)
+
+    return canvasRef
+  }
 
   return div(
     { class: 'p-8 space-y-6' },
@@ -407,7 +581,11 @@ export const DebugPanel = () => {
         // Tab content
         div({ class: 'bg-base-300 p-4 rounded-lg' }, () => {
           if (debugState.activeTab === 'radar') {
-            return div({ class: 'text-sm text-base-content/50 italic' }, 'Radar view coming soon...')
+            return div(
+              { class: 'flex flex-col items-center gap-4' },
+              RadarView(),
+              div({ class: 'text-sm text-base-content/70' }, 'Grid scale: 1 unit = 40px')
+            )
           } else {
             return div(
               { class: 'space-y-2' },
