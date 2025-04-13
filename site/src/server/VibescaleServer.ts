@@ -3,7 +3,7 @@ import { text } from 'itty-router'
 import { hasSignificantStateChange } from './stateChangeDetector'
 import {
   MessageType,
-  type Player,
+  type PlayerBase,
   type PlayerId,
   type RoomName,
   type Vector3,
@@ -38,7 +38,7 @@ export class VibescaleServer extends DurableObject<Env> {
     }
   }
 
-  private addWebSocket(ws: CloudflareWebSocket, player: Player, roomName: RoomName) {
+  private addWebSocket(ws: CloudflareWebSocket, player: PlayerBase, roomName: RoomName) {
     const meta: WsMeta = { player, roomName }
     this.wsMetaByWs.set(ws, meta)
     if (!this.wsByRoomName.has(roomName)) {
@@ -107,7 +107,7 @@ export class VibescaleServer extends DurableObject<Env> {
     const color = this.generateRandomColor()
     const spawnPosition = this.generateSpawnPosition()
 
-    const initialPlayer: Player = {
+    const initialPlayer: PlayerBase = {
       id: playerId,
       delta: {
         position: spawnPosition,
@@ -144,7 +144,7 @@ export class VibescaleServer extends DurableObject<Env> {
     })
   }
 
-  private announcePlayerJoin(roomName: RoomName, player: Player) {
+  private announcePlayerJoin(roomName: RoomName, player: PlayerBase) {
     this.broadcast(
       roomName,
       {
@@ -187,7 +187,7 @@ export class VibescaleServer extends DurableObject<Env> {
 
     switch (data.type) {
       case MessageType.PlayerDelta: {
-        const nextState: Player = {
+        const nextState: PlayerBase = {
           ...meta.player,
           delta: data.delta,
         }
@@ -210,7 +210,7 @@ export class VibescaleServer extends DurableObject<Env> {
       }
 
       case MessageType.PlayerMetadata: {
-        const nextState: Player = {
+        const nextState: PlayerBase = {
           ...meta.player,
           metadata: data.metadata,
         }
@@ -267,7 +267,7 @@ export class VibescaleServer extends DurableObject<Env> {
       if (socket.readyState !== WebSocket.OPEN) continue
 
       if (message.type === MessageType.Player) {
-        const playerMessage = message as WebSocketMessage & { player: Player }
+        const playerMessage = message as WebSocketMessage & { player: PlayerBase }
         this.sendMessage(socket, {
           ...message,
           player: { ...playerMessage.player, isLocal: false },
@@ -304,7 +304,7 @@ export class VibescaleServer extends DurableObject<Env> {
     }
   }
 
-  private savePlayer(ws: CloudflareWebSocket, player: Player) {
+  private savePlayer(ws: CloudflareWebSocket, player: PlayerBase) {
     const meta = this.wsMetaByWs.get(ws)
     if (!meta) return
 

@@ -13,29 +13,32 @@ export interface Vector3 {
 export type PlayerId = string
 
 // Core player state types with empty generic defaults
-export type PlayerDelta<T = {}> = {
+export type PlayerDeltaBase<TCustom = {}> = {
   position: Vector3
   rotation: Vector3
-} & T
+} & TCustom
 
-export type PlayerMetadata<M = {}> = M
+export type PlayerMetadataBase<TCustom = {}> = {} & TCustom
 
 export type PlayerServerData = {
   color: string
 }
 
-export type Player<T = {}, M = {}> = {
+export type PlayerBase<TDelta = {}, TMetadata = {}> = {
   id: PlayerId
-  delta: PlayerDelta<T>
+  delta: PlayerDeltaBase<TDelta>
   server: PlayerServerData
-  metadata: PlayerMetadata<M>
+  metadata: PlayerMetadataBase<TMetadata>
   isLocal: boolean
 }
 
 /**
  * Function type for detecting significant state changes between two player states
  */
-export type StateChangeDetectorFn<T = {}, M = {}> = (currentState: Player<T, M>, nextState: Player<T, M>) => boolean
+export type StateChangeDetectorFn<TPlayer extends PlayerBase = PlayerBase> = (
+  currentState: TPlayer,
+  nextState: TPlayer
+) => boolean
 
 // Message types
 export enum MessageType {
@@ -48,21 +51,21 @@ export enum MessageType {
 
 // WebSocket message types
 
-export type PlayerMessage<T = {}, M = {}> = {
+export type PlayerMessageBase<TPlayer extends PlayerBase = PlayerBase> = {
   type: MessageType.Player
-  player: Player<T, M>
+  player: TPlayer
 }
 
-export type PlayerDeltaMessage<T = {}> = {
+export type PlayerDeltaMessageBase<TPlayer extends PlayerBase = PlayerBase> = {
   type: MessageType.PlayerDelta
   id: PlayerId
-  delta: PlayerDelta<T>
+  delta: PlayerDeltaBase<TPlayer['delta']>
 }
 
-export type PlayerMetadataMessage<M = {}> = {
+export type PlayerMetadataMessageBase<TPlayer extends PlayerBase = PlayerBase> = {
   type: MessageType.PlayerMetadata
   id: PlayerId
-  metadata: PlayerMetadata<M>
+  metadata: PlayerMetadataBase<TPlayer['metadata']>
 }
 
 export type PlayerLeaveMessage = {
@@ -75,17 +78,17 @@ export type ErrorMessage = {
   message: string
 }
 
-export type WebSocketMessage<T = {}, M = {}> =
-  | PlayerMessage<T, M>
-  | PlayerDeltaMessage<T>
-  | PlayerMetadataMessage<M>
+export type WebSocketMessage<TPlayer extends PlayerBase = PlayerBase> =
+  | PlayerMessageBase<TPlayer>
+  | PlayerDeltaMessageBase<TPlayer>
+  | PlayerMetadataMessageBase<TPlayer>
   | PlayerLeaveMessage
   | ErrorMessage
 
 // Server-specific types (not used by client)
 export type RoomName = string
 
-export type WsMeta = {
-  player: Player
+export type WsMeta<TPlayer extends PlayerBase = PlayerBase> = {
+  player: TPlayer
   roomName: RoomName
 }

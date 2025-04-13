@@ -1,4 +1,4 @@
-import type { StateChangeDetectorFn, Vector3 } from './types'
+import type { PlayerBase, StateChangeDetectorFn, Vector3 } from './types'
 
 const THRESHOLDS = {
   POSITION_DISTANCE: 0.1, // Units in world space
@@ -47,11 +47,9 @@ const hasSignificantRotationChange = hasSignificantRotationChangeFactory()
  * Determines if a player state has changed significantly from its last significant state.
  * Returns true if there are significant changes in position or rotation.
  */
-export const hasSignificantStateChange =
-  <T, M>(): StateChangeDetectorFn<T, M> =>
-  (currentState, nextState) => {
-    return (
-      hasSignificantPositionChange(currentState.delta.position, nextState.delta.position) ||
-      hasSignificantRotationChange(currentState.delta.rotation, nextState.delta.rotation)
-    )
-  }
+export const hasSignificantStateChange: StateChangeDetectorFn = (currentState: PlayerBase, nextState: PlayerBase) => {
+  return (
+    hasSignificantPositionChange(currentState.delta.position, nextState.delta.position) ||
+    hasSignificantRotationChange(currentState.delta.rotation, nextState.delta.rotation)
+  )
+}
