@@ -42,6 +42,18 @@ room.on(RoomEventType.PlayerUpdated, (player) => {
 room.on(RoomEventType.Error, ({ message, error, details }) => {
   console.error('Error:', message, error, details)
 })
+
+// Handle WebSocket events
+room.on(RoomEventType.Rx, (event) => {
+  console.log('Raw WebSocket message received:', event.data)
+})
+
+room.on(RoomEventType.Tx, (message) => {
+  console.log('Message sent:', message)
+})
+
+// Get the room identifier
+const roomId = room.getRoomId() // Returns 'my-room'
 ```
 
 ## Event Types

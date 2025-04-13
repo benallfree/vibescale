@@ -38,7 +38,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
 
   function connect() {
     // Initialize WebSocket connection
-    const defaultEndpoint = `https://vibescale.benallfree.com/`
+    const defaultEndpoint = `https://vibescale.benallfree.com/${roomName}`
     nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { defaultEndpoint }))
     const customEndpoint = options.endpoint
     nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { customEndpoint }))

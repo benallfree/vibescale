@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+* when i say 'wip', create /.changeset entries. one entry per distinct change
