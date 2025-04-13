@@ -249,6 +249,10 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         ws = null
       }
     },
+
+    getRoomId: () => {
+      return roomName
+    },
   }
 
   return room

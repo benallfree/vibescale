@@ -61,6 +61,9 @@ room.setLocalPlayerDelta({
 room.setLocalPlayerMetadata({
   username: 'Player1',
 })
+
+// Get the room identifier
+const roomId = room.getRoomId() // Returns 'my-game'
 ```
 
 ## Features
@@ -124,6 +127,9 @@ interface Room<T = {}, M = {}> {
   // Local player updates
   setLocalPlayerDelta(delta: PlayerDelta<T>): void
   setLocalPlayerMetadata(metadata: PlayerMetadata<M>): void
+
+  // Room information
+  getRoomId(): string
 
   // Connection management
   disconnect(): void

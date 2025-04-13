@@ -70,5 +70,6 @@ export type Room<T = {}, M = {}> = {
   getLocalPlayer: () => Player<T, M> | null
   setLocalPlayerMetadata: (metadata: PlayerMetadata<M>) => void
   setLocalPlayerDelta: (delta: PlayerDelta<T>) => void
+  getRoomId: () => string
   disconnect: () => void
 } & Emitter<RoomEvents<T, M>>

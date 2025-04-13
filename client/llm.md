@@ -165,6 +165,9 @@ interface Room<T = {}, M = {}> {
   setLocalPlayerDelta(delta: PlayerDelta<T>): void
   setLocalPlayerMetadata(metadata: M): void
 
+  // Room information
+  getRoomId(): string
+
   // Connection management
   disconnect(): void
 }
