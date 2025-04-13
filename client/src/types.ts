@@ -1,4 +1,11 @@
-import type { Player, PlayerDelta, PlayerId, PlayerMetadata, WebSocketMessage } from '../../site/src/server/types'
+import type {
+  Player,
+  PlayerDelta,
+  PlayerId,
+  PlayerMetadata,
+  StateChangeDetectorFn,
+  WebSocketMessage,
+} from '../../site/src/server/types'
 import type { Emitter } from './EventEmitter'
 
 export * from '../../site/src/server/types'
@@ -53,8 +60,9 @@ export interface RoomEventPayloads<T = {}, M = {}> {
 // Update RoomEvents to use RoomEventPayloads
 export type RoomEvents<T = {}, M = {}> = RoomEventPayloads<T, M>
 
-export type RoomOptions = {
+export interface RoomOptions<T = {}, M = {}> {
   endpoint?: string
+  stateChangeDetectorFn?: StateChangeDetectorFn<T, M>
 }
 
 export type Room<T = {}, M = {}> = {

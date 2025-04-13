@@ -12,6 +12,8 @@ import {
   type WebSocketMessage,
 } from './types'
 
+import { hasSignificantStateChange } from '../../site/src/server/stateChangeDetector'
+export * from '../../site/src/server/stateChangeDetector'
 export * from './EventEmitter'
 export * from './types'
 
@@ -19,10 +21,11 @@ const nextTick = (cb: () => void) => {
   setTimeout(cb, 0)
 }
 
-export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOptions = {}): Room<T, M> {
+export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOptions<T, M> = {}): Room<T, M> {
   const emitter = new EventEmitter<RoomEvents<T, M>>()
   let playerId: PlayerId | null = null
   const players = new Map<PlayerId, Player<T, M>>()
+  const stateChangeDetector = options.stateChangeDetectorFn || hasSignificantStateChange<T, M>()
 
   // WebSocket connection management
   let ws: WebSocket | null = null
@@ -119,12 +122,15 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
           return
         }
 
-        const updatedPlayer: Player<T, M> = {
-          ...existingPlayer,
-          delta: message.delta,
+        // Only update and emit if there's a significant state change
+        if (stateChangeDetector(existingPlayer, { ...existingPlayer, delta: message.delta })) {
+          const updatedPlayer: Player<T, M> = {
+            ...existingPlayer,
+            delta: message.delta,
+          }
+          players.set(message.id, updatedPlayer)
+          emitter.emit(RoomEventType.PlayerUpdated, updatedPlayer)
         }
-        players.set(message.id, updatedPlayer)
-        emitter.emit(RoomEventType.PlayerUpdated, updatedPlayer)
         break
 
       case MessageType.PlayerMetadata:

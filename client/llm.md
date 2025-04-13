@@ -48,17 +48,83 @@ room.on(RoomEventType.Error, ({ message, error, details }) => {
 
 ```typescript
 enum RoomEventType {
+  // Core events
   Connected = 'connected',
   Disconnected = 'disconnected',
   Error = 'error',
+
+  // Player events
   PlayerJoined = 'player:joined',
   PlayerLeft = 'player:left',
   PlayerUpdated = 'player:updated',
   PlayerError = 'player:error',
+
+  // WebSocket events
   WebSocketInfo = 'websocket:info',
+  Rx = 'rx',
+  Tx = 'tx',
+
+  // Any event
   Any = '*',
 }
+
+// Event payloads
+interface RoomEventPayloads<T = {}, M = {}> {
+  // Core events
+  [RoomEventType.Connected]: undefined
+  [RoomEventType.Disconnected]: undefined
+  [RoomEventType.Error]: {
+    message: string
+    error: any
+    details?: any
+  }
+
+  // Player events
+  [RoomEventType.PlayerJoined]: Player<T, M>
+  [RoomEventType.PlayerLeft]: Player<T, M>
+  [RoomEventType.PlayerUpdated]: Player<T, M>
+  [RoomEventType.PlayerError]: {
+    type: string
+    error: string
+    details?: any
+  }
+
+  // WebSocket events
+  [RoomEventType.WebSocketInfo]: Record<string, any>
+  [RoomEventType.Rx]: { event: MessageEvent }
+  [RoomEventType.Tx]: { message: WebSocketMessage<T, M> }
+
+  // Special events
+  [RoomEventType.Any]: {
+    type: RoomEventType
+    data: RoomEventPayloads<T, M>[RoomEventType]
+  }
+}
 ```
+
+### Event Details
+
+1. Core Events
+
+   - `Connected`: Emitted when successfully connected to the room
+   - `Disconnected`: Emitted when disconnected from the room
+   - `Error`: Emitted for any error with message and details
+
+2. Player Events
+
+   - `PlayerJoined`: Emitted when a new player joins with full player state
+   - `PlayerLeft`: Emitted when a player leaves with their last state
+   - `PlayerUpdated`: Emitted when any player's state changes
+   - `PlayerError`: Emitted for player-specific errors
+
+3. WebSocket Events
+
+   - `WebSocketInfo`: Emitted with connection details (endpoints, etc)
+   - `Rx`: Emitted when a raw message is received
+   - `Tx`: Emitted when a message is sent
+
+4. Special Events
+   - `Any`: Catches all events with their type and payload
 
 ## Type Definitions
 
@@ -222,6 +288,90 @@ function cleanup() {
   players.clear()
 }
 ```
+
+## State Change Detection
+
+The library exports a state change detection system that helps optimize network traffic by only sending significant state updates. This is particularly useful for real-time games and simulations where frequent small updates might occur.
+
+```typescript
+import {
+  createRoom,
+  hasSignificantStateChange,
+  hasSignificantPositionChangeFactory,
+  hasSignificantRotationChangeFactory,
+  type StateChangeDetectorFn,
+} from 'vibescale'
+
+interface GameState {
+  health: number
+  position: Vector3
+  rotation: Vector3
+}
+
+// Default state change detection
+const room = createRoom<GameState>('my-room')
+
+// Custom state change detector with individual checks
+const hasPositionChange = hasSignificantPositionChangeFactory(0.2) // Custom threshold
+const hasRotationChange = hasSignificantRotationChangeFactory() // Default threshold
+
+const myDetector: StateChangeDetectorFn<GameState> = (current, next) => {
+  return (
+    hasPositionChange(current.delta.position, next.delta.position) || // Check position
+    hasRotationChange(current.delta.rotation, next.delta.rotation) || // Check rotation
+    Math.abs(current.delta.health - next.delta.health) > 5 // Check custom state
+  )
+}
+
+const room = createRoom<GameState>('my-room', {
+  stateChangeDetectorFn: myDetector,
+})
+
+// Compose with default detector
+const composedDetector: StateChangeDetectorFn<GameState> = (current, next) => {
+  return (
+    hasSignificantStateChange<GameState>()(current, next) || // Check position/rotation
+    Math.abs(current.delta.health - next.delta.health) > 5 // Check custom state
+  )
+}
+
+const room = createRoom<GameState>('my-room', {
+  stateChangeDetectorFn: composedDetector,
+})
+```
+
+The state change detector uses the following thresholds by default:
+
+- Position changes: > 0.1 units in world space (using Euclidean distance)
+- Rotation changes: > 0.1 radians (using absolute angular difference)
+
+### Implementation Details
+
+```typescript
+type StateChangeDetectorFn<T = {}, M = {}> = (currentState: Player<T, M>, nextState: Player<T, M>) => boolean
+
+interface RoomOptions<T = {}, M = {}> {
+  endpoint?: string
+  stateChangeDetectorFn?: StateChangeDetectorFn<T, M>
+}
+
+// Factory functions for individual change detectors
+function hasSignificantPositionChangeFactory(threshold?: number): (current: Vector3, next: Vector3) => boolean
+function hasSignificantRotationChangeFactory(threshold?: number): (current: Vector3, next: Vector3) => boolean
+
+// Factory function that creates the default composed detector
+function hasSignificantStateChange<T = {}, M = {}>(): StateChangeDetectorFn<T, M>
+```
+
+Parameters for StateChangeDetectorFn:
+
+- `currentState`: The current player state
+- `nextState`: The proposed new state
+
+Returns:
+
+- `true` if the state change is significant enough to send
+- `false` if the changes are below the significance thresholds
 
 ## Best Practices
 

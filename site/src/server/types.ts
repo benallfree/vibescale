@@ -32,6 +32,12 @@ export type Player<T = {}, M = {}> = {
   isLocal: boolean
 }
 
+/**
+ * Function type for detecting significant state changes between two player states
+ */
+export type StateChangeDetectorFn<T = {}, M = {}> = (currentState: Player<T, M>, nextState: Player<T, M>) => boolean
+
+// Message types
 export enum MessageType {
   Player = 'player',
   PlayerDelta = 'player:delta',

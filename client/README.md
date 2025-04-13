@@ -88,16 +88,23 @@ interface RoomOptions {
 
 ```typescript
 enum RoomEventType {
+  // Core events
   Connected = 'connected',
   Disconnected = 'disconnected',
   Error = 'error',
+
+  // Player events
   PlayerJoined = 'player:joined',
   PlayerLeft = 'player:left',
   PlayerUpdated = 'player:updated',
   PlayerError = 'player:error',
+
+  // WebSocket events
   WebSocketInfo = 'websocket:info',
   Rx = 'rx',
   Tx = 'tx',
+
+  // Any event
   Any = '*',
 }
 ```
@@ -224,6 +231,59 @@ The Vibescale server provides:
 - Efficient broadcasting to room participants
 - Automatic cleanup of disconnected players
 - CORS support for cross-origin connections
+
+## State Change Detection
+
+The library includes built-in state change detection to optimize network traffic:
+
+```typescript
+import {
+  createRoom,
+  hasSignificantStateChange,
+  hasSignificantPositionChangeFactory,
+  hasSignificantRotationChangeFactory,
+  type StateChangeDetectorFn,
+} from 'vibescale'
+
+// Default thresholds:
+// - Position changes > 0.1 units in world space
+// - Rotation changes > 0.1 radians
+
+// Use default state change detector
+const room = createRoom('my-game')
+
+// Use custom state change detector with individual checks
+const hasPositionChange = hasSignificantPositionChangeFactory(0.2) // Custom threshold
+const hasRotationChange = hasSignificantRotationChangeFactory() // Default threshold
+
+const myDetector: StateChangeDetectorFn<MyState, MyMetadata> = (current, next) => {
+  return (
+    hasPositionChange(current.delta.position, next.delta.position) || // Check position
+    hasRotationChange(current.delta.rotation, next.delta.rotation) || // Check rotation
+    Math.abs(current.delta.health - next.delta.health) > 5 // Check custom state
+  )
+}
+
+const room = createRoom<MyState, MyMetadata>('my-game', {
+  stateChangeDetectorFn: myDetector,
+})
+
+// Or compose with the default detector
+const composedDetector: StateChangeDetectorFn<MyState, MyMetadata> = (current, next) => {
+  return (
+    hasSignificantStateChange<MyState, MyMetadata>()(current, next) || // Check position/rotation
+    Math.abs(current.delta.health - next.delta.health) > 5 // Check custom state
+  )
+}
+```
+
+The state change detector:
+
+- Uses Euclidean distance for position changes
+- Measures absolute angular differences for rotations
+- Can be fully customized via `stateChangeDetectorFn` option
+- Provides individual position and rotation detectors with configurable thresholds
+- Helps reduce unnecessary network updates
 
 ## Example: Three.js Integration
 
