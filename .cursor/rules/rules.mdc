@@ -4,3 +4,4 @@ globs:
 alwaysApply: true
 ---
 * when i say 'wip', create /.changeset entries. one entry per distinct change. update [README.md](mdc:client/README.md) and [llm.md](mdc:client/llm.md) as needed
+* when creating commit messages of any kind, be exceptionally brief
