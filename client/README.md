@@ -73,6 +73,9 @@ room.setLocalPlayerMetadata({
 
 // Get the room identifier
 const roomId = room.getRoomId() // Returns 'my-game'
+
+// Check connection status
+const isConnected = room.isConnected() // Returns true if connected to server
 ```
 
 ## Features
@@ -83,6 +86,7 @@ const roomId = room.getRoomId() // Returns 'my-game'
 - Type-safe event system
 - Extensible player state and metadata
 - Debug panel for development
+- Connection status checking
 
 ## API Reference
 
@@ -141,6 +145,7 @@ interface Room<T = {}, M = {}> extends Emitter<RoomEvents<T, M>> {
 
   // Room information
   getRoomId(): string
+  isConnected(): boolean // Returns true if connected to server
 
   // Connection management
   disconnect(): void

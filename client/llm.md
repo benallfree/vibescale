@@ -54,6 +54,9 @@ room.on(RoomEventType.Tx, (message) => {
 
 // Get the room identifier
 const roomId = room.getRoomId() // Returns 'my-room'
+
+// Check connection status
+const isConnected = room.isConnected() // Returns true if connected to server
 ```
 
 ## Event Types
@@ -175,6 +178,7 @@ interface Room<T = {}, M = {}> extends Emitter<RoomEvents<T, M>> {
 
   // Room information
   getRoomId(): string
+  isConnected(): boolean // Returns true if connected to server
 
   // Connection management
   disconnect(): void

@@ -253,6 +253,10 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
     getRoomId: () => {
       return roomName
     },
+
+    isConnected: () => {
+      return ws?.readyState === WebSocket.OPEN
+    },
   }
 
   return room

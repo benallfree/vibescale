@@ -72,4 +72,5 @@ export type Room<T = {}, M = {}> = {
   setLocalPlayerDelta: (delta: PlayerDelta<T>) => void
   getRoomId: () => string
   disconnect: () => void
+  isConnected: () => boolean
 } & Emitter<RoomEvents<T, M>>
