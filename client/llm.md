@@ -91,8 +91,8 @@ interface RoomEventPayloads<T = {}, M = {}> {
 
   // WebSocket events
   [RoomEventType.WebSocketInfo]: Record<string, any>
-  [RoomEventType.Rx]: { event: MessageEvent }
-  [RoomEventType.Tx]: { message: WebSocketMessage<T, M> }
+  [RoomEventType.Rx]: MessageEvent
+  [RoomEventType.Tx]: WebSocketMessage<T, M>
 
   // Special events
   [RoomEventType.Any]: {
@@ -152,11 +152,7 @@ interface Player<T = {}, M = {}> {
   isLocal: boolean
 }
 
-interface Room<T = {}, M = {}> {
-  // Event handling
-  on<E extends RoomEventType>(event: E | '*', callback: (payload: RoomEvents<T, M>[E]) => void): () => void
-  off<E extends RoomEventType>(event: E | '*', callback: (payload: RoomEvents<T, M>[E]) => void): void
-
+interface Room<T = {}, M = {}> extends Emitter<RoomEvents<T, M>> {
   // Player access
   getPlayer(id: string): Player<T, M> | null
   getLocalPlayer(): Player<T, M> | null

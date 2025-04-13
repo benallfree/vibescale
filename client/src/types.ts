@@ -51,8 +51,8 @@ export interface RoomEventPayloads<T = {}, M = {}> {
   [RoomEventType.PlayerError]: { type: string; error: string; details?: any }
 
   [RoomEventType.WebSocketInfo]: Record<string, any>
-  [RoomEventType.Rx]: { event: MessageEvent }
-  [RoomEventType.Tx]: { message: WebSocketMessage<T, M> }
+  [RoomEventType.Rx]: MessageEvent
+  [RoomEventType.Tx]: WebSocketMessage<T, M>
 
   [RoomEventType.Any]: AnyEventPayload<T, M>
 }

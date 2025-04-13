@@ -47,6 +47,15 @@ room.on(RoomEventType.PlayerLeft, (player) => {
   console.log('Player left:', player.id)
 })
 
+// Handle WebSocket events
+room.on(RoomEventType.Rx, (event) => {
+  console.log('Raw WebSocket message received:', event.data)
+})
+
+room.on(RoomEventType.Tx, (message) => {
+  console.log('Message sent:', message)
+})
+
 // Access player data
 const localPlayer = room.getLocalPlayer()
 const otherPlayer = room.getPlayer('some-player-id')
@@ -115,11 +124,13 @@ enum RoomEventType {
 ### Room Interface
 
 ```typescript
-interface Room<T = {}, M = {}> {
-  // Event handling
-  on<E extends keyof RoomEvents<T, M>>(event: E | '*', callback: (payload: RoomEvents<T, M>[E]) => void): () => void
-  off<E extends keyof RoomEvents<T, M>>(event: E | '*', callback: (payload: RoomEvents<T, M>[E]) => void): void
+interface Emitter<Events> {
+  on<E extends keyof Events>(event: E | '*', callback: (payload: Events[E]) => void): () => void
+  off<E extends keyof Events>(event: E | '*', callback: (payload: Events[E]) => void): void
+  emit<E extends keyof Events>(event: E, payload: Events[E]): void
+}
 
+interface Room<T = {}, M = {}> extends Emitter<RoomEvents<T, M>> {
   // Player access
   getPlayer(id: PlayerId): Player<T, M> | null
   getLocalPlayer(): Player<T, M> | null

@@ -83,7 +83,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
 
     ws.onmessage = (event) => {
       try {
-        emitter.emit(RoomEventType.Rx, { event: event.data })
+        emitter.emit(RoomEventType.Rx, event)
         const message = JSON.parse(event.data) as WebSocketMessage<T, M>
         handleRxMessage(message)
       } catch (error) {
@@ -207,7 +207,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         id: playerId,
         metadata: metadata,
       }
-      emitter.emit(RoomEventType.Tx, { message })
+      emitter.emit(RoomEventType.Tx, message)
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(message))
       }
@@ -232,7 +232,7 @@ export function createRoom<T = {}, M = {}>(roomName: string, options: RoomOption
         id: playerId,
         delta,
       }
-      emitter.emit(RoomEventType.Tx, { message })
+      emitter.emit(RoomEventType.Tx, message)
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(message))
       }
