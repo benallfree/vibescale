@@ -13,6 +13,12 @@ export default defineConfig({
   plugins: [tailwindcss(), ViteEjsPlugin(), imagetools(), ViteImageOptimizer(), cloudflare()],
   build: {
     target: 'esnext',
+    rollupOptions: {
+      input: {
+        main: '/index.html',
+        demo: '/demo.html',
+      },
+    },
   },
   server: {
     allowedHosts: true,
