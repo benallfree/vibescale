@@ -39,7 +39,7 @@ export const Navbar = () => {
 
   return nav(
     {
-      class: 'bg-white shadow-md fixed w-full top-0 left-0 z-50 border-b border-gray-200',
+      class: 'shadow-md fixed w-full top-0 left-0 z-50 border-b border-gray-200',
     },
     [
       div(

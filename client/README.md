@@ -2,6 +2,8 @@
 
 A lightweight TypeScript client for building multiplayer games with Vibescale. vibescale.benallfree.com provides real-time multiplayer state synchronization with automatic reconnection handling and built-in debugging tools.
 
+> **Design Philosophy**: Vibescale acts as the authoritative source of truth for all player states in your multiplayer game. This means that all player state updates are managed and synchronized through Vibescale, ensuring consistency across all connected clients.
+
 > 🤖 **AI/LLM Integration**: If you're an AI model looking to integrate with Vibescale, check out our [LLM-specific RAG](./llm.md) for detailed WebSocket API documentation and best practices. Use `cp node_modules/vibescale/llm.md .cursor/rules/vibescale.mdc`.
 
 ## Installation
@@ -20,55 +22,55 @@ const room = createRoom('my-game', {
   endpoint: 'https://your-server.com', // Optional, defaults to https://vibescale.benallfree.com/
 })
 
+// Connect to the room (must be called explicitly)
+room.connect()
+
+> **Important**: Room connections are completely ephemeral. Disconnecting and reconnecting will produce a new player ID, and none of the old data should be trusted. Each connection is treated as a fresh start - there is no session persistence between connections.
+
 // Listen for connection events
-room.on(RoomEventType.Connected, () => {
+room.on(RoomEventType.Connected, ({ data }) => {
   console.log('Connected to room')
 })
 
-room.on(RoomEventType.Disconnected, () => {
+room.on(RoomEventType.Disconnected, ({ data }) => {
   console.log('Disconnected from room')
 })
 
 // Handle player updates
-room.on(RoomEventType.PlayerUpdated, (player) => {
+room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
   console.log('Player updated:', player.id)
-  console.log('Position:', player.delta.position)
-  console.log('Rotation:', player.delta.rotation)
-  console.log('Server data:', player.server) // Includes server-assigned color
+  console.log('Position:', player.position)
+  console.log('Rotation:', player.rotation)
+  console.log('Color:', player.color)
 })
 
 // Handle player joins/leaves
-room.on(RoomEventType.PlayerJoined, (player) => {
+room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
   console.log('New player:', player.id)
-  console.log('Server color:', player.server.color)
+  console.log('Color:', player.color)
 })
 
-room.on(RoomEventType.PlayerLeft, (player) => {
+room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
   console.log('Player left:', player.id)
 })
 
 // Handle WebSocket events
-room.on(RoomEventType.Rx, (event) => {
-  console.log('Raw WebSocket message received:', event.data)
+room.on(RoomEventType.Rx, ({ data: jsonMessage }) => {
+  console.log('Raw WebSocket message received:', jsonMessage)
 })
 
-room.on(RoomEventType.Tx, (message) => {
-  console.log('Message sent:', message)
+room.on(RoomEventType.Tx, ({ data: jsonMessage }) => {
+  console.log('Message sent:', jsonMessage)
 })
 
 // Access player data
 const localPlayer = room.getLocalPlayer()
 const otherPlayer = room.getPlayer('some-player-id')
 
-// Update local player state
-room.setLocalPlayerDelta({
-  position: { x: 10, y: 5, z: 0 },
-  rotation: { x: 0, y: Math.PI / 2, z: 0 },
-})
-
-// Update local player metadata
-room.setLocalPlayerMetadata({
-  username: 'Player1',
+// Update local player state using Immer mutations
+room.mutatePlayer(draft => {
+  draft.position = { x: 10, y: 5, z: 0 }
+  draft.rotation = { x: 0, y: Math.PI / 2, z: 0 }
 })
 
 // Get the room identifier
@@ -80,23 +82,28 @@ const isConnected = room.isConnected() // Returns true if connected to server
 
 ## Features
 
-- Automatic WebSocket reconnection with exponential backoff
+- Intelligent WebSocket reconnection with configurable exponential backoff
+- Optimized state change detection to minimize network traffic
+- Configurable state change detection through custom detector functions
+- Comprehensive connection status management and error handling
 - Server-assigned unique player IDs and colors
-- Built-in state change detection to minimize network traffic
-- Type-safe event system
-- Extensible player state and metadata
+- Type-safe event system with mutator-based state updates
+- Extensible player state
 - Debug panel for development
-- Connection status checking
 
 ## API Reference
 
 ### Room Creation
 
 ```typescript
-function createRoom<T = {}, M = {}>(roomName: string, options?: RoomOptions): Room<T, M>
+function createRoom<TPlayer extends PlayerBase = PlayerBase>(
+  roomName: string,
+  options?: RoomOptions<TPlayer>
+): Room<TPlayer>
 
-interface RoomOptions {
+interface RoomOptions<TPlayer extends PlayerBase = PlayerBase> {
   endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
+  stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
 }
 ```
 
@@ -125,102 +132,157 @@ enum RoomEventType {
 }
 ```
 
+### Event Structure
+
+All events in Vibescale follow a consistent structure using the `EmitterEvent` type:
+
+```typescript
+type EmitterEvent<Events, E extends keyof Events = keyof Events> = {
+  name: E
+  data: Events[E]
+}
+```
+
+When handling events, you'll receive an event object with:
+
+- `name`: The event type (from RoomEventType)
+- `data`: The event payload, typed according to the event type
+
+For example:
+
+```typescript
+// Connected event (no data)
+room.on(RoomEventType.Connected, ({ name, data }) => {
+  console.log('Connected event received')
+})
+
+// Player event with typed data
+room.on(RoomEventType.PlayerJoined, ({ name, data: player }) => {
+  console.log(`Player ${player.id} joined`)
+})
+
+// Error event with structured data
+room.on(RoomEventType.Error, ({ name, data: { message, error, details } }) => {
+  console.error('Error:', message, error, details)
+})
+```
+
+The event system provides full type safety:
+
+- Event names are restricted to RoomEventType values
+- Event payloads are typed according to RoomEventPayloads
+- Event handlers receive properly typed event objects
+- The wildcard event '\*' captures all events with their proper types
+
 ### Room Interface
 
 ```typescript
-interface Emitter<Events> {
-  on<E extends keyof Events>(event: E | '*', callback: (payload: Events[E]) => void): () => void
-  off<E extends keyof Events>(event: E | '*', callback: (payload: Events[E]) => void): void
-  emit<E extends keyof Events>(event: E, payload: Events[E]): void
-}
+import type { WritableDraft } from 'immer'
 
-interface Room<T = {}, M = {}> extends Emitter<RoomEvents<T, M>> {
+interface Room<TPlayer extends PlayerBase> {
+  // Event handling
+  on: <E extends RoomEventType>(event: E, callback: (event: EmitterEvent<RoomEvents<TPlayer>, E>) => void) => () => void
+  off: <E extends RoomEventType>(event: E, callback: (event: EmitterEvent<RoomEvents<TPlayer>, E>) => void) => void
+  emit: <E extends RoomEventType>(name: E, data: RoomEvents<TPlayer>[E]) => void
+
   // Player access
-  getPlayer(id: PlayerId): Player<T, M> | null
-  getLocalPlayer(): Player<T, M> | null
-
-  // Local player updates
-  setLocalPlayerDelta(delta: PlayerDelta<T>): void
-  setLocalPlayerMetadata(metadata: PlayerMetadata<M>): void
+  getPlayer: (id: PlayerId) => TPlayer | null
+  getLocalPlayer: () => TPlayer | null
+  mutatePlayer: (mutator: (draft: WritableDraft<TPlayer>) => void) => void
 
   // Room information
-  getRoomId(): string
-  isConnected(): boolean // Returns true if connected to server
+  getRoomId: () => string
+  isConnected: () => boolean
+  getEndpointUrl: () => string
 
   // Connection management
-  disconnect(): void
+  connect: () => void
+  disconnect: () => void
 }
 ```
 
 ### Types
 
-```typescript
-interface Vector3 {
-  x: number
-  y: number
-  z: number
-}
+The type system is built around a flattened player type that you can extend:
 
-interface PlayerDelta<T = {}> {
+```typescript
+// Import base types from Vibescale
+import type { PlayerBase, PlayerId, Vector3 } from 'vibescale'
+
+// Base player type (already includes these fields)
+interface PlayerBase {
+  id: PlayerId
   position: Vector3
   rotation: Vector3
-} & T
-
-interface PlayerServerData {
-  color: string // Server-assigned HSL color
+  color: string
+  username: string
+  isLocal: boolean
+  isConnected: boolean
 }
 
-interface Player<T = {}, M = {}> {
-  id: PlayerId
-  delta: PlayerDelta<T>
-  server: PlayerServerData
-  metadata: PlayerMetadata<M>
-  isLocal: boolean
+// Extend the base player type for your game
+interface GamePlayer extends PlayerBase {
+  health: number
+  speed: number
+}
+
+// Create a room with your custom type
+const room = createRoom<GamePlayer>('my-game')
+
+// TypeScript will now enforce your custom types
+room.mutatePlayer((draft) => {
+  draft.position = { x: 10, y: 5, z: 0 }
+  draft.rotation = { x: 0, y: Math.PI / 2, z: 0 }
+  draft.health = 100
+  draft.speed = 5
+})
+
+// You can also mutate nested objects and arrays safely
+room.mutatePlayer((draft) => {
+  draft.position.x += 1 // Safe to mutate nested objects
+  draft.effects = [...(draft.effects || []), 'shield'] // Safe array operations
+})
+```
+
+## Room Options
+
+```typescript
+interface RoomOptions<TPlayer extends PlayerBase = PlayerBase> {
+  endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
+  stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer> // Custom state change detection
 }
 ```
 
-## Custom State and Metadata
+## Custom State
 
-You can extend the base types to include game-specific properties:
+You can extend the base player type to include game-specific properties:
 
 ```typescript
-// Game-specific state (high-frequency updates)
-interface PlayerState {
+// Game-specific player type
+interface GamePlayer extends PlayerBase {
   health: number
   speed: number
   powerups: string[]
 }
 
-// Game-specific metadata (low-frequency updates)
-interface PlayerMeta {
-  username: string
-  level: number
-  equipment: {
-    weapon: string
-    armor: string
-  }
-}
+// Create room with custom type
+const room = createRoom<GamePlayer>('my-game')
 
-// Create room with custom types
-const room = createRoom<PlayerState, PlayerMeta>('my-game')
-
-// Update state (frequent updates)
-room.setLocalPlayerDelta({
-  position: { x: 10, y: 5, z: 0 },
-  rotation: { x: 0, y: Math.PI / 2, z: 0 },
-  health: 100,
-  speed: 5,
-  powerups: ['shield', 'speed'],
+// Update state with mutations
+room.mutatePlayer((draft) => {
+  // Update position and game state
+  draft.position = { x: 10, y: 5, z: 0 }
+  draft.health = 100
+  draft.speed = 5
 })
 
-// Update metadata (infrequent updates)
-room.setLocalPlayerMetadata({
-  username: 'Player1',
-  level: 5,
-  equipment: {
-    weapon: 'sword',
-    armor: 'leather',
-  },
+// Another mutation example
+room.mutatePlayer((draft) => {
+  // Update nested fields and arrays
+  draft.position.x += 1
+  draft.rotation.y = Math.PI / 2
+  draft.powerups.push('shield')
+  draft.health = Math.min(100, draft.health + 10)
 })
 ```
 
@@ -229,7 +291,7 @@ room.setLocalPlayerMetadata({
 The library includes a built-in debug panel component that provides:
 
 - Real-time player position visualization (radar view)
-- Player list with state/metadata inspection
+- Player list with state inspection
 - WebSocket message logging
 - Connection status monitoring
 - Manual player state manipulation
@@ -259,13 +321,7 @@ The Vibescale server provides:
 The library includes built-in state change detection to optimize network traffic:
 
 ```typescript
-import {
-  createRoom,
-  hasSignificantStateChange,
-  hasSignificantPositionChangeFactory,
-  hasSignificantRotationChangeFactory,
-  type StateChangeDetectorFn,
-} from 'vibescale'
+import { createRoom, hasSignificantStateChange, type StateChangeDetectorFn } from 'vibescale'
 
 // Default thresholds:
 // - Position changes > 0.1 units in world space
@@ -274,38 +330,18 @@ import {
 // Use default state change detector
 const room = createRoom('my-game')
 
-// Use custom state change detector with individual checks
-const hasPositionChange = hasSignificantPositionChangeFactory(0.2) // Custom threshold
-const hasRotationChange = hasSignificantRotationChangeFactory() // Default threshold
-
-const myDetector: StateChangeDetectorFn<MyState, MyMetadata> = (current, next) => {
+// Custom state change detector
+const myDetector: StateChangeDetectorFn<PlayerBase<GameState>> = (current, next) => {
   return (
-    hasPositionChange(current.delta.position, next.delta.position) || // Check position
-    hasRotationChange(current.delta.rotation, next.delta.rotation) || // Check rotation
-    Math.abs(current.delta.health - next.delta.health) > 5 // Check custom state
+    hasSignificantStateChange(current, next) || // Check position/rotation
+    Math.abs(current.state.health - next.state.health) > 5 // Check custom state
   )
 }
 
-const room = createRoom<MyState, MyMetadata>('my-game', {
+const room = createRoom<PlayerBase<GameState>>('my-game', {
   stateChangeDetectorFn: myDetector,
 })
-
-// Or compose with the default detector
-const composedDetector: StateChangeDetectorFn<MyState, MyMetadata> = (current, next) => {
-  return (
-    hasSignificantStateChange<MyState, MyMetadata>()(current, next) || // Check position/rotation
-    Math.abs(current.delta.health - next.delta.health) > 5 // Check custom state
-  )
-}
 ```
-
-The state change detector:
-
-- Uses Euclidean distance for position changes
-- Measures absolute angular differences for rotations
-- Can be fully customized via `stateChangeDetectorFn` option
-- Provides individual position and rotation detectors with configurable thresholds
-- Helps reduce unnecessary network updates
 
 ## Example: Three.js Integration
 
@@ -317,26 +353,27 @@ const scene = new THREE.Scene()
 const players = new Map<string, THREE.Mesh>()
 
 const room = createRoom('three-js-room')
+room.connect()
 
 // Handle player updates
-room.on(RoomEventType.PlayerUpdated, (player) => {
+room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
   const mesh = players.get(player.id)
   if (mesh) {
-    const pos = player.delta.position
-    const rot = player.delta.rotation
+    const pos = player.position
+    const rot = player.rotation
     mesh.position.set(pos.x, pos.y, pos.z)
     mesh.rotation.set(rot.x, rot.y, rot.z)
   }
 })
 
 // Handle new players
-room.on(RoomEventType.PlayerJoined, (player) => {
+room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
   const geometry = new THREE.BoxGeometry()
-  const material = new THREE.MeshBasicMaterial({ color: player.server.color })
+  const material = new THREE.MeshBasicMaterial({ color: player.color })
   const mesh = new THREE.Mesh(geometry, material)
 
-  const pos = player.delta.position
-  const rot = player.delta.rotation
+  const pos = player.position
+  const rot = player.rotation
   mesh.position.set(pos.x, pos.y, pos.z)
   mesh.rotation.set(rot.x, rot.y, rot.z)
 
@@ -345,7 +382,7 @@ room.on(RoomEventType.PlayerJoined, (player) => {
 })
 
 // Handle players leaving
-room.on(RoomEventType.PlayerLeft, (player) => {
+room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
   const mesh = players.get(player.id)
   if (mesh) {
     scene.remove(mesh)
@@ -355,9 +392,9 @@ room.on(RoomEventType.PlayerLeft, (player) => {
 
 // Update local player position and rotation
 function onPlayerMove(position: Vector3, rotation: Vector3) {
-  room.setLocalPlayerDelta({
-    position,
-    rotation,
+  room.mutatePlayer((draft) => {
+    draft.position = position
+    draft.rotation = rotation
   })
 }
 ```

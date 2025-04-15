@@ -90,25 +90,6 @@ export const initRouter = (templates: any) => {
     },
   })
 
-  // Debug route
-  router.on({
-    '/:room/debug': {
-      as: 'debug',
-      uses: (match: Match) => {
-        const roomName = match?.data?.room
-        if (!roomName || !/^[a-zA-Z0-9-]+$/.test(roomName)) {
-          router.navigate('/404')
-          return
-        }
-        appState.roomName = roomName
-        appState.isValid = true
-        appState.currentView = 'dashboard'
-        appState.activeTab = 'debug'
-        renderView(Dashboard({ templates }))
-      },
-    },
-  })
-
   // 404 route
   router.notFound(() => {
     renderView(NotFoundPage())

@@ -4,24 +4,23 @@ import {
   createRoom,
   RoomEventType,
   type EmitterEvent,
-  type Player,
-  type PlayerDelta,
+  type PlayerBase,
   type Room,
   type RoomEventPayloads,
   type RoomEvents,
-} from '../../../client/src'
-import { appState } from '../state'
-import { JSONEditor } from './components/JSONEditor'
+} from '../../../../client/src'
+import { appState } from '../../state'
+import { JSONEditor } from '../components/JSONEditor'
 
 const { div, h2, pre, code, button, input, canvas } = van.tags
 
 interface DebugState {
   history: Array<EmitterEvent<RoomEvents> & { timestamp: string }>
   connectionStatus: 'connecting' | 'connected' | 'disconnected'
-  localPlayer: Player<Record<string, unknown>, Record<string, unknown>> | null
+  localPlayer: PlayerBase | null
   url: string
-  room: Room<Record<string, unknown>, Record<string, unknown>> | null
-  players: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>
+  room: Room | null
+  players: Record<string, PlayerBase>
   selectedPlayerId: string | null
   editorValue: string
   activeTab: 'radar' | 'logs'
@@ -35,7 +34,7 @@ export const DebugPanel = () => {
     history: [],
     connectionStatus: 'disconnected',
     localPlayer: null,
-    url: `//${window.location.host}/${appState.roomName}`,
+    url: `//${window.location.host}`,
     room: null,
     players: {},
     selectedPlayerId: null,
@@ -69,6 +68,11 @@ export const DebugPanel = () => {
     const room = createRoom(appState.roomName, {
       endpoint: debugState.url,
     })
+    room.on(RoomEventType.Any, (event) => {
+      const { name, data } = event
+      console.log('*', name, data)
+    })
+    room.connect()
 
     // Connection events
     room.on(RoomEventType.Connected, () => {
@@ -101,98 +105,65 @@ export const DebugPanel = () => {
     })
 
     // Player events
-    room.on(
-      RoomEventType.PlayerJoined,
-      (
-        event: EmitterEvent<
-          RoomEventPayloads<Record<string, unknown>, Record<string, unknown>>,
-          RoomEventType.PlayerJoined
-        >
-      ) => {
-        console.log('PlayerJoined', event)
-        const player = event.data
-        if (player.isLocal) {
-          debugState.localPlayer = player
-          const rawPlayer = raw(player)
-          const playerData = {
-            id: rawPlayer.id,
-            delta: rawPlayer.delta,
-            metadata: rawPlayer.metadata,
-            server: rawPlayer.server,
-            isLocal: rawPlayer.isLocal,
-          }
-          debugState.editorValue = JSON.stringify(playerData, null, 2)
+    room.on(RoomEventType.PlayerJoined, (event: EmitterEvent<RoomEventPayloads, RoomEventType.PlayerJoined>) => {
+      console.log('PlayerJoined', event)
+      const player = event.data
+      if (player.isLocal) {
+        debugState.localPlayer = player
+        const rawPlayer = raw(player)
+        const playerData = {
+          ...rawPlayer,
+          isLocal: rawPlayer.isLocal,
         }
-        debugState.players[player.id] = player
+        debugState.editorValue = JSON.stringify(playerData, null, 2)
       }
-    )
+      debugState.players[player.id] = player
+    })
 
-    room.on(
-      RoomEventType.PlayerLeft,
-      (
-        event: EmitterEvent<
-          RoomEventPayloads<Record<string, unknown>, Record<string, unknown>>,
-          RoomEventType.PlayerLeft
-        >
-      ) => {
-        const player = event.data
-        if (debugState.localPlayer?.id === player.id) {
-          debugState.localPlayer = null
-          // Stop wandering animation if local player left
-          if (debugState.wanderAnimationId !== null) {
-            cancelAnimationFrame(debugState.wanderAnimationId)
-            debugState.wanderAnimationId = null
-            debugState.isWandering = false
-          }
-        }
-        if (debugState.selectedPlayerId === player.id) {
-          debugState.selectedPlayerId = null
-        }
-        delete debugState.players[player.id]
-      }
-    )
-
-    room.on(
-      RoomEventType.PlayerUpdated,
-      (
-        event: EmitterEvent<
-          RoomEventPayloads<Record<string, unknown>, Record<string, unknown>>,
-          RoomEventType.PlayerUpdated
-        >
-      ) => {
-        const player = event.data
-        if (player.isLocal) {
-          debugState.localPlayer = player
-          const rawPlayer = raw(player)
-          const playerData = {
-            id: rawPlayer.id,
-            delta: rawPlayer.delta,
-            metadata: rawPlayer.metadata,
-            server: rawPlayer.server,
-            isLocal: rawPlayer.isLocal,
-          }
-          debugState.editorValue = JSON.stringify(playerData, null, 2)
-        }
-        debugState.players[player.id] = player
-
-        // If this is the currently selected player, update their data in the editor
-        if (debugState.selectedPlayerId === player.id) {
-          const selectedPlayer = debugState.players[player.id]
-          const rawPlayer = raw(selectedPlayer)
-          const updatedData = {
-            id: rawPlayer.id,
-            delta: rawPlayer.delta,
-            metadata: rawPlayer.metadata,
-            server: rawPlayer.server,
-            isLocal: rawPlayer.isLocal,
-          }
-          if (!selectedPlayer.isLocal) {
-            // Only update non-local player data directly
-            debugState.editorValue = JSON.stringify(updatedData, null, 2)
-          }
+    room.on(RoomEventType.PlayerLeft, (event: EmitterEvent<RoomEventPayloads, RoomEventType.PlayerLeft>) => {
+      const player = event.data
+      if (debugState.localPlayer?.id === player.id) {
+        debugState.localPlayer = null
+        // Stop wandering animation if local player left
+        if (debugState.wanderAnimationId !== null) {
+          cancelAnimationFrame(debugState.wanderAnimationId)
+          debugState.wanderAnimationId = null
+          debugState.isWandering = false
         }
       }
-    )
+      if (debugState.selectedPlayerId === player.id) {
+        debugState.selectedPlayerId = null
+      }
+      delete debugState.players[player.id]
+    })
+
+    room.on(RoomEventType.PlayerUpdated, (event: EmitterEvent<RoomEventPayloads, RoomEventType.PlayerUpdated>) => {
+      const player = event.data
+      if (player.isLocal) {
+        debugState.localPlayer = player
+        const rawPlayer = raw(player)
+        const playerData = {
+          ...rawPlayer,
+          isLocal: rawPlayer.isLocal,
+        }
+        debugState.editorValue = JSON.stringify(playerData, null, 2)
+      }
+      debugState.players[player.id] = player
+
+      // If this is the currently selected player, update their data in the editor
+      if (debugState.selectedPlayerId === player.id) {
+        const selectedPlayer = debugState.players[player.id]
+        const rawPlayer = raw(selectedPlayer)
+        const updatedData = {
+          ...rawPlayer,
+          isLocal: rawPlayer.isLocal,
+        }
+        if (!selectedPlayer.isLocal) {
+          // Only update non-local player data directly
+          debugState.editorValue = JSON.stringify(updatedData, null, 2)
+        }
+      }
+    })
 
     // Error events
     room.on(RoomEventType.Error, (event: EmitterEvent<RoomEventPayloads>) => {
@@ -214,9 +185,9 @@ export const DebugPanel = () => {
 
     // Get current position as center of the pattern
     const centerPosition = {
-      x: debugState.localPlayer.delta.position.x,
-      y: debugState.localPlayer.delta.position.y,
-      z: debugState.localPlayer.delta.position.z,
+      x: debugState.localPlayer.position.x || 0,
+      y: debugState.localPlayer.position.y || 0,
+      z: debugState.localPlayer.position.z || 0,
     }
 
     const animate = () => {
@@ -229,14 +200,11 @@ export const DebugPanel = () => {
       // Calculate rotation to face the direction of movement
       const rotation = Math.atan2(Math.cos(time * speed) * Math.sin(time * speed), Math.cos(time * speed * 2))
 
-      // Create the new delta
-      const newDelta = {
-        position: { x, y: centerPosition.y, z },
-        rotation: { x: 0, y: rotation, z: 0 },
-      }
-
       // Update server
-      debugState.room?.setLocalPlayerDelta(newDelta)
+      debugState.room?.mutatePlayer((oldState) => {
+        oldState.position = { x, y: centerPosition.y, z }
+        oldState.rotation = { x: 0, y: rotation, z: 0 }
+      })
 
       // Update local state for radar
       if (debugState.localPlayer) {
@@ -245,7 +213,8 @@ export const DebugPanel = () => {
         if (currentPlayer) {
           debugState.players[playerId] = {
             ...currentPlayer,
-            delta: newDelta,
+            position: { x, y: centerPosition.y, z },
+            rotation: { x: 0, y: rotation, z: 0 },
           }
         }
       }
@@ -356,7 +325,7 @@ export const DebugPanel = () => {
       }
     }
 
-    const calculateBounds = (players: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>) => {
+    const calculateBounds = (players: Record<string, PlayerBase>) => {
       let minX = 0,
         maxX = 0,
         minZ = 0,
@@ -365,14 +334,14 @@ export const DebugPanel = () => {
 
       Object.values(players).forEach((player) => {
         const rawPlayer = raw(player)
-        const delta = rawPlayer.delta as { position?: { x: number; y: number; z: number } }
+        const position = rawPlayer.position as { x: number; y: number; z: number }
 
-        if (delta?.position) {
+        if (position) {
           hasPlayers = true
-          minX = Math.min(minX, delta.position.x)
-          maxX = Math.max(maxX, delta.position.x)
-          minZ = Math.min(minZ, delta.position.z)
-          maxZ = Math.max(maxZ, delta.position.z)
+          minX = Math.min(minX, position.x)
+          maxX = Math.max(maxX, position.x)
+          minZ = Math.min(minZ, position.z)
+          maxZ = Math.max(maxZ, position.z)
         }
       })
 
@@ -380,7 +349,7 @@ export const DebugPanel = () => {
         return { minX: -5, maxX: 5, minZ: -5, maxZ: 5, scale: 1 }
       }
 
-      // Add padding to bounds
+      // Add padding to bounds (increased for better visibility)
       const padding = 2
       minX -= padding
       maxX += padding
@@ -392,16 +361,19 @@ export const DebugPanel = () => {
       const zRange = Math.abs(maxZ - minZ)
       const maxRange = Math.max(xRange, zRange)
 
-      // Calculate scale to fit in canvas (leave room for labels)
+      // Calculate scale to fit in canvas
+      // We divide by maxRange * 2 to ensure the scale accounts for the full range
+      // and multiply by 0.9 to add a 10% margin around the edges
       const canvasSize = canvasRef.width
-      const scale = maxRange === 0 ? 1 : (canvasSize - 20) / (maxRange * (canvasSize / 10))
+      const baseGridSize = canvasSize / 10
+      const scale = maxRange === 0 ? 1 : Math.min(1, (canvasSize * 0.9) / (maxRange * baseGridSize * 2))
 
       return { minX, maxX, minZ, maxZ, scale }
     }
 
     const drawPlayers = (
       ctx: CanvasRenderingContext2D,
-      players: Record<string, Player<Record<string, unknown>, Record<string, unknown>>>,
+      players: Record<string, PlayerBase>,
       bounds: ReturnType<typeof calculateBounds>
     ) => {
       const { scale } = bounds
@@ -410,13 +382,12 @@ export const DebugPanel = () => {
 
       Object.values(players).forEach((player) => {
         // Scale and center the coordinates
-        const x = player.delta.position.x * (size / 10) * scale + center
-        const z = player.delta.position.z * (size / 10) * scale + center
-        const rotation = player.delta.rotation?.y || 0
+        const x = player.position.x * (size / 10) * scale + center
+        const z = player.position.z * (size / 10) * scale + center
+        const rotation = player.rotation?.y || 0
 
         // Get color from server state or use defaults
-        const serverState = player.server as { color?: string }
-        const color = serverState?.color || (player.isLocal ? '#60A5FA' : '#F87171')
+        const color = player.color || (player.isLocal ? '#60A5FA' : '#F87171')
 
         // Draw player triangle
         drawTriangle(ctx, x, z, rotation, color)
@@ -574,15 +545,8 @@ export const DebugPanel = () => {
                       debugState.selectedPlayerId = id
                       const selectedPlayer = debugState.players[id]
                       const rawPlayer = raw(selectedPlayer)
-                      const playerData = {
-                        id: rawPlayer.id,
-                        delta: rawPlayer.delta,
-                        metadata: rawPlayer.metadata,
-                        server: rawPlayer.server,
-                        isLocal: rawPlayer.isLocal,
-                      }
                       if (selectedPlayer.isLocal) {
-                        debugState.editorValue = JSON.stringify(playerData, null, 2)
+                        debugState.editorValue = JSON.stringify(rawPlayer, null, 2)
                       }
                     },
                   },
@@ -591,7 +555,7 @@ export const DebugPanel = () => {
                       class: 'text-xs',
                       style: () => {
                         const player = debugState.players[id]
-                        const color = (player.server as { color?: string })?.color || '#000000'
+                        const color = player.color || '#000000'
                         return `color: ${color}`
                       },
                     },
@@ -616,63 +580,35 @@ export const DebugPanel = () => {
                 return div({ class: 'text-sm text-base-content/50 italic' }, 'Select a player to view details...')
               }
 
-              const rawPlayer = raw(selectedPlayer)
               const isLocalPlayer = selectedPlayer.isLocal
-              const playerData = {
-                id: rawPlayer.id,
-                delta: rawPlayer.delta,
-                metadata: rawPlayer.metadata,
-                server: rawPlayer.server,
-                isLocal: rawPlayer.isLocal,
-              }
 
               return div(
                 { class: 'flex-1' },
                 JSONEditor({
                   value: () => {
                     const rawPlayer = raw(selectedPlayer)
-                    const playerData = {
-                      id: rawPlayer.id,
-                      delta: rawPlayer.delta,
-                      metadata: rawPlayer.metadata,
-                      server: rawPlayer.server,
-                      isLocal: rawPlayer.isLocal,
-                    }
-                    return JSON.stringify(playerData, null, 2)
+                    return JSON.stringify(rawPlayer, null, 2)
                   },
-                  onUpdate: (value) => {
+                  onUpdate: (value: PlayerBase) => {
                     if (isLocalPlayer) {
                       try {
                         const currentData = value
                         const player = debugState.localPlayer
                         if (!player) return
 
-                        // Extract delta and metadata from the complete object
-                        const { delta, metadata } = currentData
-
                         // Send updates if there are changes
-                        if (delta) {
-                          debugState.room?.setLocalPlayerDelta(delta as PlayerDelta<Record<string, unknown>>)
+                        if (value) {
+                          debugState.room?.mutatePlayer((oldState) => {
+                            oldState.position = value.position
+                            oldState.rotation = value.rotation
+                          })
                           // Update local player in players map
                           if (player.id) {
                             const currentPlayer = debugState.players[player.id]
                             if (currentPlayer) {
                               debugState.players[player.id] = {
                                 ...currentPlayer,
-                                delta: delta as PlayerDelta<Record<string, unknown>>,
-                              }
-                            }
-                          }
-                        }
-                        if (metadata) {
-                          debugState.room?.setLocalPlayerMetadata(metadata)
-                          // Update local player metadata in players map
-                          if (player.id) {
-                            const currentPlayer = debugState.players[player.id]
-                            if (currentPlayer) {
-                              debugState.players[player.id] = {
-                                ...currentPlayer,
-                                metadata,
+                                ...value,
                               }
                             }
                           }

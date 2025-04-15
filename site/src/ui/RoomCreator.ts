@@ -15,7 +15,8 @@ export const RoomCreator = () => {
     div(
       {
         id: 'validationIndicator',
-        class: () => `absolute right-4 top-1/2 -translate-y-1/2 text-error ${appState.isValid ? 'hidden' : ''}`,
+        class: () =>
+          `absolute right-4 top-1/2 -translate-y-1/2 text-error ${appState.roomName && !appState.isValid ? '' : 'hidden'}`,
       },
       '✕'
     )

@@ -1,6 +1,6 @@
 {
   "name": "vibescale",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "type": "module",
   "description": "A lightweight TypeScript client for building multiplayer games with Vibescale",
   "keywords": [
@@ -38,15 +38,17 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "chokidar 'src/**/*.ts' -c 'bun run build'",
+    "dev": "chokidar 'src/**/*.ts' '../site/src/**/*.ts' --command 'bun run build'",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "chokidar-cli": "^3.0.0",
+    "immer": "^10.1.1",
     "tsup": "^8.0.2",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "url-join": "^5.0.0"
   },
   "publishConfig": {
     "access": "public"

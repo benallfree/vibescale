@@ -1,0 +1,222 @@
+<!--
+* review @llm.md carefully
+* we are using vibescale for this project
+* make @demo.html into a pure html/js/esm minimal page which is a threejs scene with a cube.
+* wasd moves the cube around and changes its rotation as it moves, updating the server each time.
+* display a grid for easy visibility
+* position and rotation are updated as the player moves
+* when remote players join, they are assigned a color from the server
+* add a RoomEventType.Any listener that console.logs events
+* use ?r=<room_name> defaulting to 'demo-room'
+* use ?e=<endpoint> defaulting to 'https://vibescale.benallfree.com'
+* use delta-based movement
+* make the camera follow around the local player cube. i want to be able to steer around and change my rotation with A and D and have the camera follow me
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vibescale Demo</title>
+    <style>
+      body {
+        margin: 0;
+      }
+      canvas {
+        display: block;
+      }
+      #info {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-family: monospace;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">WASD to move</div>
+    <script type="module">
+      import * as THREE from 'https://unpkg.com/three@0.162.0/build/three.module.js'
+      import { createRoom, RoomEventType } from '../client/src/index.ts'
+      // Get room name and endpoint from URL query parameters or use defaults
+      const thisUrl = new URL(window.location.href)
+      thisUrl.pathname = ''
+      const params = new URLSearchParams(window.location.search)
+      const roomName = params.get('r') || 'demo-room'
+      const endpoint = params.get('e') || `https://vibescale.benallfree.com`
+
+      // Create and connect to room
+      const room = createRoom(roomName, {
+        endpoint,
+      })
+      // Scene setup
+      const scene = new THREE.Scene()
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+      const renderer = new THREE.WebGLRenderer()
+      renderer.setSize(window.innerWidth, window.innerHeight)
+      document.body.appendChild(renderer.domElement)
+
+      // Add grid
+      const gridHelper = new THREE.GridHelper(20, 20)
+      scene.add(gridHelper)
+
+      // Set up camera
+      camera.position.set(0, 5, 10)
+      camera.lookAt(0, 0, 0)
+
+      // Camera follow settings
+      const cameraOffset = new THREE.Vector3(0, 5, 10) // Height and distance behind
+      const cameraLerpFactor = 0.1 // Smoothing factor for camera movement
+
+      // Player management
+      const players = new Map()
+
+      // Create player mesh
+      function createPlayerMesh(color) {
+        const geometry = new THREE.BoxGeometry()
+        const material = new THREE.MeshBasicMaterial({ color })
+        return new THREE.Mesh(geometry, material)
+      }
+
+      // Create and connect to room
+      room.connect()
+
+      // Handle all events
+      room.on(RoomEventType.Any, ({ type, data }) => {
+        console.log('Event:', type, data)
+      })
+
+      // Handle player join
+      room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
+        const mesh = createPlayerMesh(player.color)
+        players.set(player.id, { player, mesh })
+        scene.add(mesh)
+
+        // If this is the local player, set up controls
+        if (player.isLocal) {
+          setupControls()
+        }
+      })
+
+      // Handle player updates
+      room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+        const playerData = players.get(player.id)
+        if (playerData) {
+          const { mesh } = playerData
+          mesh.position.set(player.position.x, player.position.y, player.position.z)
+          mesh.rotation.set(player.rotation.x, player.rotation.y, player.rotation.z)
+        }
+      })
+
+      // Handle player leave
+      room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
+        const playerData = players.get(player.id)
+        if (playerData) {
+          scene.remove(playerData.mesh)
+          players.delete(player.id)
+        }
+      })
+
+      // Movement controls
+      const keys = { w: false, a: false, s: false, d: false }
+      const moveSpeed = 5.0 // Units per second
+      const rotateSpeed = 2.0 // Radians per second
+      let lastTime = performance.now()
+
+      function setupControls() {
+        document.addEventListener('keydown', (e) => {
+          if (keys.hasOwnProperty(e.key.toLowerCase())) {
+            keys[e.key.toLowerCase()] = true
+          }
+        })
+
+        document.addEventListener('keyup', (e) => {
+          if (keys.hasOwnProperty(e.key.toLowerCase())) {
+            keys[e.key.toLowerCase()] = false
+          }
+        })
+      }
+
+      function updateLocalPlayer() {
+        const localPlayer = room.getLocalPlayer()
+        if (!localPlayer) return
+
+        const playerData = players.get(localPlayer.id)
+        if (!playerData) return
+
+        const currentTime = performance.now()
+        const deltaTime = (currentTime - lastTime) / 1000 // Convert to seconds
+        lastTime = currentTime
+
+        let moved = false
+        const { mesh } = playerData
+
+        // Handle rotation with A/D
+        if (keys.a) {
+          mesh.rotation.y += rotateSpeed * deltaTime
+          moved = true
+        }
+        if (keys.d) {
+          mesh.rotation.y -= rotateSpeed * deltaTime
+          moved = true
+        }
+
+        // Calculate forward movement based on current rotation
+        const moveVector = new THREE.Vector3()
+        if (keys.w) {
+          moveVector.z = -moveSpeed * deltaTime
+          moved = true
+        }
+        if (keys.s) {
+          moveVector.z = moveSpeed * deltaTime
+          moved = true
+        }
+
+        // Apply movement in the direction the player is facing
+        if (moveVector.length() > 0) {
+          moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), mesh.rotation.y)
+          mesh.position.add(moveVector)
+        }
+
+        // Update camera position to follow player with rotation
+        const rotatedOffset = cameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), mesh.rotation.y)
+        const targetCameraPos = mesh.position.clone().add(rotatedOffset)
+        camera.position.lerp(targetCameraPos, cameraLerpFactor)
+        camera.lookAt(mesh.position)
+
+        if (moved) {
+          room.mutatePlayer((draft) => {
+            draft.position = {
+              x: mesh.position.x,
+              y: mesh.position.y,
+              z: mesh.position.z,
+            }
+            draft.rotation = {
+              x: mesh.rotation.x,
+              y: mesh.rotation.y,
+              z: mesh.rotation.z,
+            }
+          })
+        }
+      }
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate)
+        updateLocalPlayer()
+        renderer.render(scene, camera)
+      }
+      animate()
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight
+        camera.updateProjectionMatrix()
+        renderer.setSize(window.innerWidth, window.innerHeight)
+      })
+    </script>
+  </body>
+</html>

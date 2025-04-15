@@ -1,11 +1,12 @@
 import van from 'vanjs-core'
+import ragHelper from '../../../client/llm.md?raw'
+import demoHtml from '../../demo.html?raw'
 import { appState } from '../state'
 import { renderMarkdown } from '../utils/prism'
-import { ClipboardButton } from './ClipboardButton'
-import { DebugPanel } from './DebugPanel'
+import { DebugPanel } from './Simulator/Simulator'
 import { TabNav } from './TabNav'
 
-const { div, h1, h2, h3, p } = van.tags
+const { div, h1, h2, h3, p, pre, code, a } = van.tags
 
 interface DashboardProps {
   templates: {
@@ -16,7 +17,7 @@ interface DashboardProps {
 }
 
 const generateUrls = (roomName: string) => ({
-  http: `https://vibescale.benallfree.com/${roomName}`,
+  http: `https://vibescale.benallfree.com`,
   ws: `wss://vibescale.benallfree.com/${roomName}/websocket`,
 })
 
@@ -33,56 +34,56 @@ const DashboardContent = ({ templates }: DashboardProps) => {
       case 'overview':
         return div(
           { class: 'p-8 space-y-6' },
-          h2({ class: 'text-2xl font-bold mb-6' }, 'Endpoints'),
           div(
             { class: 'space-y-4' },
             div(
               { class: 'space-y-2' },
-              div({ class: 'font-semibold text-lg' }, 'REST Endpoint'),
+              div({ class: 'font-semibold text-lg' }, 'HTTP Endpoint'),
               div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm break-all' }, urls.http)
-            ),
-            div(
-              { class: 'space-y-2' },
-              div({ class: 'font-semibold text-lg' }, 'WebSocket Endpoint'),
-              div({ class: 'bg-base-300 p-4 rounded-lg font-mono text-sm break-all' }, urls.ws)
-            )
-          )
-        )
-      case 'rag':
-        return div(
-          { class: 'p-8 space-y-8' },
-          // Introduction section
-          div(
-            { class: 'mb-8' },
-            h2({ class: 'text-2xl font-bold mb-4' }, 'LLM Integration Guide'),
-            p(
-              { class: 'text-base-content/80 mb-4' },
-              "This room comes with built-in LLM context that makes it easy to integrate with AI assistants. Below you'll find the essential documentation for integrating with your Vibescale room:"
             )
           ),
-          // API Documentation section
           div(
             { class: 'space-y-4' },
             div(
-              { class: 'flex items-center gap-2' },
-              h3({ class: 'text-xl font-semibold' }, 'API Documentation'),
-              ClipboardButton({
-                text: `Room URLs:\n${urls.http}\n${urls.ws}\n\nInstructions:\n${roomInstructions}`,
-                title: 'Copy API Documentation',
-              })
-            ),
-            p(
-              { class: 'text-base-content/80' },
-              'Complete documentation of the REST and WebSocket endpoints, including message types and connection flow.'
+              { class: 'font-semibold text-lg' },
+              'Demo App',
+              ' ',
+              a(
+                {
+                  class: 'btn btn-primary ml-4 btn-sm',
+                  target: '_blank',
+                  href: () => {
+                    const endpoint = new URL(window.location.href)
+                    endpoint.pathname = ''
+                    const thisUrl = new URL(window.location.href)
+                    thisUrl.pathname = '/demo'
+                    thisUrl.searchParams.set('r', appState.roomName)
+                    thisUrl.searchParams.set('e', endpoint.toString())
+                    const demoUrl = thisUrl.toString()
+                    const vibecheckUrl = new URL('https://vibecheck.benallfree.com')
+                    vibecheckUrl.searchParams.set('url', demoUrl)
+                    return vibecheckUrl.toString()
+                  },
+                },
+                '🚀 Launch on Vibecheck'
+              )
             ),
             div(
               { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px] border border-black' },
               (() => {
                 const el = document.createElement('div')
                 el.className = 'prose prose-invert max-w-none'
-                el.innerHTML = renderMarkdown(roomInstructions)
+                el.innerHTML = renderMarkdown('```html\n' + demoHtml + '```')
                 return el
               })()
+            )
+          ),
+          div(
+            { class: 'space-y-4' },
+            div({ class: 'font-semibold text-lg' }, 'RAG Helper'),
+            div(
+              { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px] border border-black' },
+              pre({ class: 'language-markdown' }, code({ class: 'language-markdown' }, ragHelper))
             )
           )
         )

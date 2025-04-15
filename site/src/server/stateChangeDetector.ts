@@ -48,8 +48,9 @@ const hasSignificantRotationChange = hasSignificantRotationChangeFactory()
  * Returns true if there are significant changes in position or rotation.
  */
 export const hasSignificantStateChange: StateChangeDetectorFn = (currentState: PlayerBase, nextState: PlayerBase) => {
-  return (
-    hasSignificantPositionChange(currentState.delta.position, nextState.delta.position) ||
-    hasSignificantRotationChange(currentState.delta.rotation, nextState.delta.rotation)
-  )
+  const hasChange =
+    hasSignificantPositionChange(currentState.position, nextState.position) ||
+    hasSignificantRotationChange(currentState.rotation, nextState.rotation)
+  // console.log('hasChange', hasChange)
+  return hasChange
 }

@@ -8,11 +8,7 @@ export const TabNav = () => {
     { class: 'tabs tabs-boxed bg-base-200 p-2 mb-6' },
     ul(
       { class: 'flex' },
-      [
-        { id: 'overview', path: '' },
-        { id: 'rag', path: '/rag' },
-        { id: 'debug', path: '/debug' },
-      ].map(({ id, path }) =>
+      [{ id: 'overview', path: '', label: 'Install' }].map(({ id, path, label }) =>
         li(
           a(
             {
@@ -20,7 +16,7 @@ export const TabNav = () => {
               'data-navigo': true,
               class: () => `tab ${appState.activeTab === id ? 'tab-active' : ''}`,
             },
-            id.charAt(0).toUpperCase() + id.slice(1)
+            label || id.charAt(0).toUpperCase() + id.slice(1)
           )
         )
       )
