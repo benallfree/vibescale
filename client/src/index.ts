@@ -24,6 +24,9 @@ export function createRoom<TPlayer extends PlayerBase>(
   roomName: string,
   options: RoomOptions<TPlayer> = {}
 ): Room<TPlayer> {
+  if (!roomName) {
+    throw new Error(`createRoom(roomName) requires a roomName. ${roomName} is not a valid roomName.`)
+  }
   const emitter = new EventEmitter<RoomEvents<TPlayer>>()
   let playerId: PlayerId | null = null
   const players = new Map<PlayerId, TPlayer>()
@@ -109,8 +112,14 @@ export function createRoom<TPlayer extends PlayerBase>(
       const defaultEndpoint = `https://vibescale.benallfree.com`
       nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { defaultEndpoint }))
       const customEndpoint = options.endpoint
+      console.log('***customEndpoint', { customEndpoint, test: customEndpoint === undefined })
       nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { customEndpoint }))
+      console.log('***customEndpoint2', {
+        test: customEndpoint === undefined ? defaultEndpoint : customEndpoint,
+        roomName,
+      })
       const finalEndpoint = urlJoin(customEndpoint === undefined ? defaultEndpoint : customEndpoint, roomName)
+      console.log('***finalEndpoint', { finalEndpoint })
       nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { finalEndpoint }))
 
       return finalEndpoint
