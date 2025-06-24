@@ -37,8 +37,8 @@
     "llm.md"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "chokidar 'src/**/*.ts' '../site/src/**/*.ts' --command 'bun run build'",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
@@ -46,7 +46,7 @@
     "@types/bun": "latest",
     "chokidar-cli": "^3.0.0",
     "immer": "^10.1.1",
-    "tsup": "^8.0.2",
+    "tsdown": "^0.12.8",
     "typescript": "^5.0.0",
     "url-join": "^5.0.0"
   },
