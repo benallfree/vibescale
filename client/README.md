@@ -12,6 +12,16 @@ A lightweight TypeScript client for building multiplayer games with Vibescale. v
 npm install vibescale
 ```
 
+### TypeScript Import (Better Minification)
+
+For potentially better minification in your bundler, you can import the TypeScript source directly:
+
+```typescript
+import { createRoom, RoomEventType } from 'vibescale/ts'
+```
+
+This imports the raw TypeScript files instead of the compiled JavaScript, allowing your bundler to optimize the code during your build process.
+
 ## Quick Start
 
 ```typescript

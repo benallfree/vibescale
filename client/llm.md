@@ -14,6 +14,8 @@ const room = createRoom('my-room', {
   endpoint: 'https://vibescale.benallfree.com', // Optional
 })
 
+> **TypeScript Import for Better Minification**: You can import the TypeScript source directly with `import { createRoom, RoomEventType } from 'vibescale/ts'` for potentially better minification in your bundler.
+
 > **Connection Ephemerality**: Room connections are completely ephemeral. Each disconnect/reconnect cycle generates a new player ID, and previous connection data should not be trusted. The `Connected` event handler should treat each connection as a fresh start by clearing all data structures. There is no session persistence between connections.
 
 // Connect to the room (must be called explicitly)
