@@ -103,9 +103,10 @@ export function createRoom<TPlayer extends PlayerBase>(
       }
       const baseState = playerDeltaBases.get(playerId)!
 
+      // console.log('mutatePlayer in', JSON.stringify({ baseState }))
       const newState = produce(currentPlayer, mutator)
       players.set(playerId, newState)
-      // console.log('mutatePlayer', JSON.stringify({ baseState, newState }, null, 2))
+      // console.log('mutatePlayer out', JSON.stringify({ newState }))
 
       if (!stateChangeDetector(baseState, newState)) {
         return newState
@@ -198,7 +199,6 @@ export function createRoom<TPlayer extends PlayerBase>(
       ws.onmessage = (event) => {
         try {
           const jsonMessage = event.data as string
-          console.log('rx', jsonMessage)
           emitter.emit(RoomEventType.Rx, jsonMessage)
           const message = JSON.parse(jsonMessage) as WebSocketMessage<TPlayer>
           handleRxMessage(message)
@@ -222,6 +222,7 @@ export function createRoom<TPlayer extends PlayerBase>(
           const normalizedPlayer = normalizePlayerState(message as any) as TPlayer
           // Replace all properties of draft with normalizedPlayer properties
           Object.assign(draft, normalizedPlayer, { type: MessageType.PlayerState })
+          // console.log(`draft`, JSON.stringify(draft, null, 2))
           draft.position = coordinateConverter.serverToWorld(draft.position)
         })
 
