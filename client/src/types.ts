@@ -24,6 +24,7 @@ export enum RoomEventType {
   PlayerLeft = 'player:left',
   PlayerUpdated = 'player:updated',
   PlayerError = 'player:error',
+  PlayerMutated = 'player:mutated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',

@@ -128,6 +128,8 @@ export function createRoom<TPlayer extends PlayerBase>(
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(jsonMessage)
       }
+      emitter.emit(RoomEventType.PlayerMutated, newState)
+      return newState
     },
 
     disconnect: () => {
