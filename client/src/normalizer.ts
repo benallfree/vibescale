@@ -23,7 +23,7 @@ export const defaultNormalizePlayerState = <TPlayer extends PlayerBase>(state: P
     position: {
       x: state.position?.x || 0,
       y: state.position?.y || 0,
-      z: state.position?.y || 0, // Keep original y as z (not used in 2D)
+      z: state.position?.z || 0, // Keep original y as z (not used in 2D)
     },
     rotation: {
       x: state.rotation?.x || 0,
