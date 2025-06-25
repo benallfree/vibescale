@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers'
 import { text } from 'itty-router'
+import packageJson from '../../package.json'
 import {
   MessageType,
   type PlayerBase,
@@ -117,6 +118,12 @@ export class VibescaleServer extends DurableObject<Env> {
     })
 
     this.addWebSocket(cloudflareWs, initialPlayer, roomName)
+
+    // Send version information first
+    this.sendMessage(cloudflareWs, {
+      type: MessageType.Version,
+      version: packageJson.version,
+    })
 
     // Send the player their ID, color, and spawn position
     this.sendMessage(cloudflareWs, {

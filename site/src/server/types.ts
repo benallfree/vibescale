@@ -40,6 +40,7 @@ export type StateChangeDetectorFn<TPlayerStateExtension extends PlayerStateExten
 // Message types
 export enum MessageType {
   PlayerState = 'player:state',
+  Version = 'version',
   Error = 'error',
 }
 
@@ -48,6 +49,11 @@ export type PlayerStateMessageBase<TPlayerStateExtension extends PlayerStateExte
   type: MessageType.PlayerState
 } & PlayerBase<TPlayerStateExtension>
 
+export type VersionMessage = {
+  type: MessageType.Version
+  version: string
+}
+
 export type ErrorMessage = {
   type: MessageType.Error
   message: string
@@ -55,6 +61,7 @@ export type ErrorMessage = {
 
 export type WebSocketMessage<TPlayerStateExtension extends PlayerStateExtension = PlayerStateExtension> =
   | PlayerStateMessageBase<TPlayerStateExtension>
+  | VersionMessage
   | ErrorMessage
 
 // Server-specific types (not used by client)
