@@ -76,6 +76,7 @@ export interface RoomOptions<TPlayer extends PlayerBase> {
 export type Room<TPlayer extends PlayerBase = PlayerBase> = {
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
+  getAllPlayers: () => TPlayer[]
   mutatePlayer: (mutator: (draft: TPlayer) => void) => void
   getRoomId: () => string
   disconnect: () => void

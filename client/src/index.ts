@@ -89,6 +89,10 @@ export function createRoom<TPlayer extends PlayerBase>(
       return players.get(playerId) || null
     },
 
+    getAllPlayers: () => {
+      return Array.from(players.values())
+    },
+
     mutatePlayer: (mutator) => {
       if (!playerId) return
 
