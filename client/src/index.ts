@@ -218,9 +218,13 @@ export function createRoom<TPlayer extends PlayerBase>(
   function handleRxMessage(message: WebSocketMessage<TPlayer>) {
     switch (message.type) {
       case MessageType.PlayerState:
-        const serverPlayer = message
-        // Convert server normalized coordinates to world coordinates
-        const player = produce(serverPlayer, (draft) => {
+        const player = produce(message, (draft) => {
+          // Apply normalization if provided
+          if (options.normalizePlayerState) {
+            const normalizedPlayer = options.normalizePlayerState(message as any) as TPlayer
+            // Replace all properties of draft with normalizedPlayer properties
+            Object.assign(draft, normalizedPlayer, { type: MessageType.PlayerState })
+          }
           draft.position = coordinateConverter.serverToWorld(draft.position)
         })
 
