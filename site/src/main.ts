@@ -6,7 +6,6 @@ import { appState } from './state'
 import { Navbar } from './ui/Navbar'
 
 // Import templates
-import stateChangeDetector from './server/stateChangeDetector.ts?raw'
 import networkTypes from './server/types.ts?raw'
 import instructions from './templates/instructions.md?raw'
 
@@ -25,7 +24,6 @@ const { div } = van.tags
 const router = initRouter({
   instructions,
   networkTypes,
-  stateChangeDetector,
 })
 
 // Create app container with conditional navbar

@@ -202,8 +202,11 @@ export const DebugPanel = () => {
 
       // Update server
       debugState.room?.mutatePlayer((oldState) => {
-        oldState.position = { x, y: centerPosition.y, z }
-        oldState.rotation = { x: 0, y: rotation, z: 0 }
+        return {
+          ...oldState,
+          position: { x, y: centerPosition.y, z },
+          rotation: { x: 0, y: rotation, z: 0 },
+        }
       })
 
       // Update local state for radar
@@ -599,8 +602,11 @@ export const DebugPanel = () => {
                         // Send updates if there are changes
                         if (value) {
                           debugState.room?.mutatePlayer((oldState) => {
-                            oldState.position = value.position
-                            oldState.rotation = value.rotation
+                            return {
+                              ...oldState,
+                              position: value.position,
+                              rotation: value.rotation,
+                            }
                           })
                           // Update local player in players map
                           if (player.id) {
