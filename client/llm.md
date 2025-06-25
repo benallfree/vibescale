@@ -246,6 +246,42 @@ The `getEndpointUrl` method:
 - Defaults to vibescale.benallfree.com if no custom endpoint is specified
 - Is used internally for WebSocket connection management
 
+## Player State Normalization
+
+The `normalizePlayerState` option allows you to normalize player state received from the server. This is useful when:
+
+- The server sends partial player data that needs to be filled with defaults
+- You need to transform server data to match your client's player type
+- You want to ensure all custom properties have proper default values
+
+```typescript
+interface GamePlayer extends PlayerBase {
+  health: number
+  stamina: number
+  level: number
+  equipment: string[]
+}
+
+const room = createRoom<GamePlayer>('my-game', {
+  normalizePlayerState: (partialPlayer) => {
+    // Fill in defaults for any missing custom properties
+    return {
+      ...partialPlayer,
+      health: partialPlayer.health ?? 100,       // Default health
+      stamina: partialPlayer.stamina ?? 100,     // Default stamina  
+      level: partialPlayer.level ?? 1,           // Default level
+      equipment: partialPlayer.equipment ?? [],  // Default empty equipment
+    } as GamePlayer
+  }
+})
+```
+
+The normalization function:
+- Receives `PartialDeep<TPlayer>` (allows partial/missing properties)
+- Must return a complete `TPlayer` object
+- Is called for every player state message from the server
+- Runs before coordinate conversion and event emission
+
 ## State Management
 
 The library supports configurable state management libraries for immutable updates. By default, it uses a simple shallow copy approach where you handle your own spreading for nested objects, but you can configure it to use libraries like Immer or Mutative:
@@ -395,24 +431,111 @@ function cleanup() {
 
 ## State Change Detection
 
-The library now supports custom state change detection:
+The library provides configurable state change detection through the `createStateChangeDetector` factory to optimize network traffic:
 
 ```typescript
-interface RoomOptions<TPlayer extends PlayerBase> {
-  stateChangeDetectorFn?: (oldState: TPlayer, newState: TPlayer) => boolean
+import { 
+  createRoom, 
+  createStateChangeDetector, 
+  hasSignificantStateChange,
+  type StateChangeDetectorFn,
+  type StateChangeDetectorOptions 
+} from 'vibescale'
+
+// Use default detector (0.1 units position, 0.1 radians rotation)
+const room = createRoom<GamePlayer>('my-game')
+
+// Custom detector with specific thresholds
+const room = createRoom<GamePlayer>('precision-game', {
+  stateChangeDetectorFn: createStateChangeDetector({
+    positionDistance: 0.01, // 1cm precision
+    rotationAngle: 0.01,    // ~0.5 degree precision
+  })
+})
+
+// Large world detector
+const room = createRoom<GamePlayer>('large-world', {
+  stateChangeDetectorFn: createStateChangeDetector({
+    positionDistance: 1.0,  // 1 unit threshold
+    rotationAngle: 0.2,     // ~11 degree threshold
+  })
+})
+
+// Custom detector with game-specific property checks
+interface GamePlayer extends PlayerBase {
+  health: number
+  ammo: number
+  weaponId: string
 }
 
-// Example custom detector
-const room = createRoom('my-room', {
-  stateChangeDetectorFn: (oldState, newState) => {
-    // Only send updates for position changes > 0.1 units
-    const dx = Math.abs(newState.state.position.x - oldState.state.position.x)
-    const dy = Math.abs(newState.state.position.y - oldState.state.position.y)
-    const dz = Math.abs(newState.state.position.z - oldState.state.position.z)
-    return dx > 0.1 || dy > 0.1 || dz > 0.1
-  },
+const room = createRoom<GamePlayer>('fps-game', {
+  stateChangeDetectorFn: createStateChangeDetector<GamePlayer>({
+    positionDistance: 0.1,
+    rotationAngle: 0.05,
+    customChecker: (current, next) => {
+      // Always detect changes in game-specific properties
+      return (
+        Math.abs(current.health - next.health) > 5 || // Health changes > 5
+        Math.abs(current.ammo - next.ammo) > 0 ||     // Any ammo change
+        current.weaponId !== next.weaponId            // Weapon changes
+      )
+    }
+  })
+})
+
+// Alternatively, create a custom detector function from scratch
+const gameDetector = (current: GamePlayer, next: GamePlayer): boolean => {
+  // Check position/rotation changes first
+  const baseDetector = createStateChangeDetector<GamePlayer>({
+    positionDistance: 0.1,
+    rotationAngle: 0.05,
+  })
+  
+  if (baseDetector(current, next)) {
+    return true
+  }
+  
+  // Check game-specific changes
+  return (
+    Math.abs(current.health - next.health) > 5 || // Health changes > 5
+    Math.abs(current.ammo - next.ammo) > 0        // Any ammo change
+  )
+}
+
+const room = createRoom<GamePlayer>('fps-game-alt', {
+  stateChangeDetectorFn: gameDetector,
 })
 ```
+
+### State Change Detector Options
+
+The `StateChangeDetectorOptions` interface defines configurable detection sensitivity and custom checkers:
+
+```typescript
+interface StateChangeDetectorOptions<TPlayer extends PlayerBase> {
+  positionDistance?: number // Units in world space (default: 0.1)
+  rotationAngle?: number    // Radians (default: 0.1)
+  customChecker?: (currentState: TPlayer, nextState: TPlayer) => boolean
+}
+
+// Factory function creates detectors with custom options
+function createStateChangeDetector<TPlayer extends PlayerBase>(
+  options?: StateChangeDetectorOptions<TPlayer>
+): StateChangeDetectorFn<TPlayer>
+
+// Individual detector factories
+function createPositionChangeDetector(threshold?: number): (current: Vector3, next: Vector3) => boolean
+function createRotationChangeDetector(threshold?: number): (current: Vector3, next: Vector3) => boolean
+```
+
+This system allows you to:
+
+1. **Optimize network traffic** by filtering out insignificant movements
+2. **Customize sensitivity** based on your game's world scale and precision requirements
+3. **Combine position/rotation detection** with game-specific state changes
+4. **Use individual detectors** for fine-grained control
+5. **Add custom property checks** for game-specific state changes (health, ammo, etc.)
+6. **Always detect username/color changes** automatically
 
 ## Connection Management
 

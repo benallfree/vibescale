@@ -116,6 +116,7 @@ function createRoom<TPlayer extends PlayerBase = PlayerBase>(
 interface RoomOptions<TPlayer extends PlayerBase = PlayerBase> {
   endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
+  normalizePlayerState?: (state: PartialDeep<TPlayer>) => TPlayer
   worldScale?: number | WorldScale // Coordinate conversion scale (default: 1)
   produce?: ProduceFn // Custom state management function
 }
@@ -338,6 +339,7 @@ const room = createRoom('my-game', {
 interface RoomOptions<TPlayer extends PlayerBase = PlayerBase> {
   endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer> // Custom state change detection
+  normalizePlayerState?: (state: PartialDeep<TPlayer>) => TPlayer // Player state normalization
   worldScale?: number | WorldScale // Coordinate conversion scale (default: 1)  
   produce?: ProduceFn // Custom state management function
 }
@@ -345,6 +347,42 @@ interface RoomOptions<TPlayer extends PlayerBase = PlayerBase> {
 // Generic produce function type
 type ProduceFn = <T>(state: T, mutator: (draft: T) => void) => T
 ```
+
+### Player State Normalization
+
+The `normalizePlayerState` option allows you to normalize player state received from the server. This is useful when:
+
+- The server sends partial player data that needs to be filled with defaults
+- You need to transform server data to match your client's player type
+- You want to ensure all custom properties have proper default values
+
+```typescript
+interface GamePlayer extends PlayerBase {
+  health: number
+  stamina: number
+  level: number
+  equipment: string[]
+}
+
+const room = createRoom<GamePlayer>('my-game', {
+  normalizePlayerState: (partialPlayer) => {
+    // Fill in defaults for any missing custom properties
+    return {
+      ...partialPlayer,
+      health: partialPlayer.health ?? 100,       // Default health
+      stamina: partialPlayer.stamina ?? 100,     // Default stamina  
+      level: partialPlayer.level ?? 1,           // Default level
+      equipment: partialPlayer.equipment ?? [],  // Default empty equipment
+    } as GamePlayer
+  }
+})
+```
+
+The normalization function:
+- Receives `PartialDeep<TPlayer>` (allows partial/missing properties)
+- Must return a complete `TPlayer` object
+- Is called for every player state message from the server
+- Runs before coordinate conversion and event emission
 
 ## Custom State
 
@@ -404,10 +442,11 @@ document.body.appendChild(DebugPanel())
 The Vibescale server provides:
 
 - Automatic player spawning with random colors and positions
-- State change detection with configurable thresholds
 - Efficient broadcasting to room participants
 - Automatic cleanup of disconnected players
 - CORS support for cross-origin connections
+
+> **Self-Hosting**: Want to run your own Vibescale server? Check out our [Server Setup Guide](../site/) for deployment instructions and configuration options.
 
 ## Version/Protocol Compatibility
 
@@ -440,29 +479,138 @@ The version message is sent before any other messages, allowing clients to perfo
 
 ## State Change Detection
 
-The library includes built-in state change detection to optimize network traffic:
+The library includes configurable state change detection to optimize network traffic by filtering out insignificant updates:
 
 ```typescript
-import { createRoom, hasSignificantStateChange, type StateChangeDetectorFn } from 'vibescale'
+import { 
+  createRoom, 
+  createStateChangeDetector, 
+  hasSignificantStateChange, 
+  type StateChangeDetectorFn,
+  type StateChangeDetectorOptions 
+} from 'vibescale'
 
-// Default thresholds:
-// - Position changes > 0.1 units in world space
-// - Rotation changes > 0.1 radians
-
-// Use default state change detector
+// Use default state change detector (0.1 units position, 0.1 radians rotation)
 const room = createRoom('my-game')
 
-// Custom state change detector
-const myDetector: StateChangeDetectorFn<PlayerBase<GameState>> = (current, next) => {
+// Create custom detector with specific thresholds
+const room = createRoom('precision-game', {
+  stateChangeDetectorFn: createStateChangeDetector({
+    positionDistance: 0.01, // Very precise - detect 1cm movements
+    rotationAngle: 0.01,    // Very precise - detect small rotations
+  })
+})
+
+// Large world with less sensitive detection
+const room = createRoom('large-world', {
+  stateChangeDetectorFn: createStateChangeDetector({
+    positionDistance: 1.0,  // Ignore movements under 1 unit
+    rotationAngle: 0.2,     // Less sensitive to rotation changes
+  })
+})
+
+// Custom detector with game-specific property checks
+interface GamePlayer extends PlayerBase {
+  health: number
+  ammo: number
+  weaponId: string
+  score: number
+}
+
+const room = createRoom<GamePlayer>('fps-game', {
+  stateChangeDetectorFn: createStateChangeDetector<GamePlayer>({
+    positionDistance: 0.1,
+    rotationAngle: 0.05,
+    customChecker: (current, next) => {
+      // Always detect changes in game-specific properties
+      return (
+        Math.abs(current.health - next.health) > 5 || // Health changes > 5
+        Math.abs(current.ammo - next.ammo) > 0 ||     // Any ammo change
+        current.weaponId !== next.weaponId ||         // Weapon changes
+        current.score !== next.score                  // Score changes
+      )
+    }
+  })
+})
+
+// Alternatively, create a custom detector function from scratch
+const gameDetector = (current: GamePlayer, next: GamePlayer): boolean => {
+  // Check position/rotation changes first
+  const baseDetector = createStateChangeDetector<GamePlayer>({
+    positionDistance: 0.1,
+    rotationAngle: 0.05,
+  })
+  
+  if (baseDetector(current, next)) {
+    return true
+  }
+  
+  // Check game-specific changes
   return (
-    hasSignificantStateChange(current, next) || // Check position/rotation
-    Math.abs(current.state.health - next.state.health) > 5 // Check custom state
+    Math.abs(current.health - next.health) > 5 || // Health changes > 5
+    Math.abs(current.ammo - next.ammo) > 0        // Any ammo change
   )
 }
 
-const room = createRoom<PlayerBase<GameState>>('my-game', {
-  stateChangeDetectorFn: myDetector,
+const room = createRoom<GamePlayer>('fps-game-alt', {
+  stateChangeDetectorFn: gameDetector,
 })
+```
+
+### State Change Detector Factory
+
+The `createStateChangeDetector` factory provides configurable thresholds and custom checkers:
+
+```typescript
+interface StateChangeDetectorOptions<TPlayer extends PlayerBase> {
+  positionDistance?: number // Units in world space (default: 0.1)
+  rotationAngle?: number    // Radians (default: 0.1)
+  customChecker?: (currentState: TPlayer, nextState: TPlayer) => boolean
+}
+
+// Default thresholds
+const detector = createStateChangeDetector()
+
+// Custom thresholds only
+const detector = createStateChangeDetector({
+  positionDistance: 0.05, // 5cm precision
+  rotationAngle: 0.02,    // ~1 degree precision
+})
+
+// With custom property checker
+interface MyPlayer extends PlayerBase {
+  health: number
+  level: number
+}
+
+const detector = createStateChangeDetector<MyPlayer>({
+  positionDistance: 0.1,
+  rotationAngle: 0.05,
+  customChecker: (current, next) => {
+    // Detect any health or level changes
+    return current.health !== next.health || current.level !== next.level
+  }
+})
+```
+
+### Individual Change Detectors
+
+You can also use individual position and rotation detectors:
+
+```typescript
+import { 
+  createPositionChangeDetector, 
+  createRotationChangeDetector 
+} from 'vibescale'
+
+const hasPositionChanged = createPositionChangeDetector(0.1)
+const hasRotationChanged = createRotationChangeDetector(0.05)
+
+// Use in custom logic
+const customDetector = (current: PlayerBase, next: PlayerBase) => {
+  return hasPositionChanged(current.position, next.position) ||
+         hasRotationChanged(current.rotation, next.rotation)
+}
 ```
 
 ## Example: Three.js Integration
