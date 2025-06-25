@@ -254,6 +254,8 @@ The `normalizePlayerState` option allows you to normalize player state received 
 - You need to transform server data to match your client's player type
 - You want to ensure all custom properties have proper default values
 
+### Basic Normalization Function
+
 ```typescript
 interface GamePlayer extends PlayerBase {
   health: number
@@ -276,11 +278,118 @@ const room = createRoom<GamePlayer>('my-game', {
 })
 ```
 
+### Normalizer Factory
+
+For more complex scenarios, you can use the `createPlayerStateNormalizer` factory which provides default normalization for base player properties and allows custom normalization:
+
+```typescript
+import { createPlayerStateNormalizer } from 'vibescale'
+
+interface GamePlayer extends PlayerBase {
+  health: number
+  stamina: number
+  level: number
+  equipment: string[]
+}
+
+// Create a normalizer with custom logic
+const gameNormalizer = createPlayerStateNormalizer<GamePlayer>({
+  customNormalizer: (state) => {
+    return {
+      ...state,
+      health: state.health ?? 100,
+      stamina: state.stamina ?? 100,
+      level: state.level ?? 1,
+      equipment: state.equipment ?? [],
+    } as GamePlayer
+  }
+})
+
+const room = createRoom<GamePlayer>('my-game', {
+  normalizePlayerState: gameNormalizer
+})
+```
+
+### Normalizer Factory Options
+
+The `createPlayerStateNormalizer` factory accepts configuration options:
+
+```typescript
+interface PlayerStateNormalizerFactoryOptions {
+  customNormalizer?: <TPlayer extends PlayerBase>(
+    state: PartialDeep<PlayerBase>
+  ) => PartialDeep<TPlayer>
+}
+
+// Type definitions
+type PlayerStateNormalizerFactoryOptions = {
+  customNormalizer?: <TPlayer extends PlayerBase>(
+    state: PartialDeep<PlayerBase>
+  ) => PartialDeep<TPlayer>
+}
+
+function createPlayerStateNormalizer<TPlayer extends PlayerBase>(
+  options: PlayerStateNormalizerFactoryOptions
+): (state: PartialDeep<TPlayer>) => TPlayer
+
+function defaultNormalizePlayerState<TPlayer extends PlayerBase>(
+  state: PartialDeep<TPlayer>
+): TPlayer
+```
+
+### Default Normalization
+
+The factory uses `defaultNormalizePlayerState` internally, which provides these defaults for base player properties:
+
+- `position`: `{ x: 0, y: 0, z: 0 }`
+- `rotation`: `{ x: 0, y: 0, z: 0 }`
+- `color`: `'#ff0000'`
+- `username`: `'enseapea'`
+- `isLocal`: `false`
+- `isConnected`: `false`
+- `id`: `''`
+
+```typescript
+import { defaultNormalizePlayerState, createPlayerStateNormalizer } from 'vibescale'
+
+// Use default normalization directly
+const room = createRoom('my-game', {
+  normalizePlayerState: defaultNormalizePlayerState
+})
+
+// Create normalizer with only custom logic (no default normalization)
+const customOnlyNormalizer = createPlayerStateNormalizer<GamePlayer>({
+  customNormalizer: (state) => {
+    return {
+      ...state,
+      health: state.health ?? 100,
+      stamina: state.stamina ?? 100,
+    } as GamePlayer
+  }
+})
+
+// Combine default and custom normalization manually
+const room = createRoom<GamePlayer>('my-game', {
+  normalizePlayerState: (partialPlayer) => {
+    // First apply default normalization
+    const normalized = defaultNormalizePlayerState(partialPlayer)
+    
+    // Then add custom properties
+    return {
+      ...normalized,
+      health: partialPlayer.health ?? 100,
+      stamina: partialPlayer.stamina ?? 100,
+    } as GamePlayer
+  }
+})
+```
+
 The normalization function:
 - Receives `PartialDeep<TPlayer>` (allows partial/missing properties)
 - Must return a complete `TPlayer` object
 - Is called for every player state message from the server
 - Runs before coordinate conversion and event emission
+- Can be created using the factory pattern or implemented as a direct function
 
 ## State Management
 

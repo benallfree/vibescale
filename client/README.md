@@ -356,6 +356,8 @@ The `normalizePlayerState` option allows you to normalize player state received 
 - You need to transform server data to match your client's player type
 - You want to ensure all custom properties have proper default values
 
+#### Basic Normalization Function
+
 ```typescript
 interface GamePlayer extends PlayerBase {
   health: number
@@ -373,6 +375,74 @@ const room = createRoom<GamePlayer>('my-game', {
       stamina: partialPlayer.stamina ?? 100,     // Default stamina  
       level: partialPlayer.level ?? 1,           // Default level
       equipment: partialPlayer.equipment ?? [],  // Default empty equipment
+    } as GamePlayer
+  }
+})
+```
+
+#### Normalizer Factory
+
+For more complex scenarios, you can use the `createPlayerStateNormalizer` factory which provides default normalization for base player properties and allows custom normalization:
+
+```typescript
+import { createPlayerStateNormalizer } from 'vibescale'
+
+interface GamePlayer extends PlayerBase {
+  health: number
+  stamina: number
+  level: number
+  equipment: string[]
+}
+
+// Create a normalizer with custom logic
+const gameNormalizer = createPlayerStateNormalizer<GamePlayer>({
+  customNormalizer: (state) => {
+    return {
+      ...state,
+      health: state.health ?? 100,
+      stamina: state.stamina ?? 100,
+      level: state.level ?? 1,
+      equipment: state.equipment ?? [],
+    } as GamePlayer
+  }
+})
+
+const room = createRoom<GamePlayer>('my-game', {
+  normalizePlayerState: gameNormalizer
+})
+```
+
+#### Default Normalization
+
+The factory uses `defaultNormalizePlayerState` internally, which provides these defaults for base player properties:
+
+- `position`: `{ x: 0, y: 0, z: 0 }`
+- `rotation`: `{ x: 0, y: 0, z: 0 }`
+- `color`: `'#ff0000'`
+- `username`: `'enseapea'`
+- `isLocal`: `false`
+- `isConnected`: `false`
+- `id`: `''`
+
+```typescript
+import { defaultNormalizePlayerState } from 'vibescale'
+
+// Use default normalization directly
+const room = createRoom('my-game', {
+  normalizePlayerState: defaultNormalizePlayerState
+})
+
+// Or combine with custom logic
+const room = createRoom<GamePlayer>('my-game', {
+  normalizePlayerState: (partialPlayer) => {
+    // First apply default normalization
+    const normalized = defaultNormalizePlayerState(partialPlayer)
+    
+    // Then add custom properties
+    return {
+      ...normalized,
+      health: partialPlayer.health ?? 100,
+      stamina: partialPlayer.stamina ?? 100,
     } as GamePlayer
   }
 })

@@ -1,5 +1,6 @@
 import { createCoordinateConverter, createWorldScale } from './coordinateConversion'
 import { EventEmitter } from './EventEmitter'
+import { defaultNormalizePlayerState } from './normalizer'
 import { createStateChangeDetector } from './stateChangeDetector'
 import {
   MessageType,
@@ -58,6 +59,7 @@ export function createRoom<TPlayer extends PlayerBase>(
   const players = new Map<PlayerId, TPlayer>()
   const playerDeltaBases = new Map<PlayerId, TPlayer>()
   const stateChangeDetector = options.stateChangeDetectorFn || createStateChangeDetector()
+  const normalizePlayerState = options.normalizePlayerState || defaultNormalizePlayerState
 
   // Use custom produce function if provided, otherwise use default
   const produce = options.produce || defaultProduce
@@ -220,11 +222,9 @@ export function createRoom<TPlayer extends PlayerBase>(
       case MessageType.PlayerState:
         const player = produce(message, (draft) => {
           // Apply normalization if provided
-          if (options.normalizePlayerState) {
-            const normalizedPlayer = options.normalizePlayerState(message as any) as TPlayer
-            // Replace all properties of draft with normalizedPlayer properties
-            Object.assign(draft, normalizedPlayer, { type: MessageType.PlayerState })
-          }
+          const normalizedPlayer = normalizePlayerState(message as any) as TPlayer
+          // Replace all properties of draft with normalizedPlayer properties
+          Object.assign(draft, normalizedPlayer, { type: MessageType.PlayerState })
           draft.position = coordinateConverter.serverToWorld(draft.position)
         })
 
