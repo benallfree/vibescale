@@ -1,6 +1,6 @@
-import { hasSignificantStateChange } from '../../site/src/server/stateChangeDetector'
 import { createCoordinateConverter, createWorldScale } from './coordinateConversion'
 import { EventEmitter } from './EventEmitter'
+import { createStateChangeDetector } from './stateChangeDetector'
 import {
   MessageType,
   RoomEventType,
@@ -13,9 +13,9 @@ import {
   type WebSocketMessage,
 } from './types'
 
-export * from '../../site/src/server/stateChangeDetector'
 export * from './coordinateConversion'
 export * from './EventEmitter'
+export * from './stateChangeDetector'
 export * from './types'
 
 // Helper for scheduling microtasks
@@ -57,7 +57,7 @@ export function createRoom<TPlayer extends PlayerBase>(
   let playerId: PlayerId | null = null
   const players = new Map<PlayerId, TPlayer>()
   const playerDeltaBases = new Map<PlayerId, TPlayer>()
-  const stateChangeDetector = options.stateChangeDetectorFn || hasSignificantStateChange
+  const stateChangeDetector = options.stateChangeDetectorFn || createStateChangeDetector()
 
   // Use custom produce function if provided, otherwise use default
   const produce = options.produce || defaultProduce

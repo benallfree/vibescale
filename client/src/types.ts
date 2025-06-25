@@ -1,16 +1,20 @@
 import type { PartialDeep } from 'type-fest'
-import type { PlayerBase, PlayerId, StateChangeDetectorFn } from '../../site/src/server/types'
+import type { PlayerBase, PlayerId } from '../../site/src/server/types'
 import type { Emitter } from './EventEmitter'
 import type { WorldScale } from './coordinateConversion'
 
 export * from '../../site/src/server/types'
 export * from './coordinateConversion'
 
-// Generic produce function type that works with immer, mutative, or custom implementations
-// This allows the draft type to be different from the input type (e.g., WritableDraft<T>, Draft<T>)
 export type ProduceFn = <T>(state: T, mutator: (draft: any) => void) => T
 
-export type PlayerEventCallback = (player: PlayerBase) => void
+/**
+ * Function type for detecting significant state changes between two player states
+ */
+export type StateChangeDetectorFn<TPlayer extends PlayerBase = PlayerBase> = (
+  currentState: TPlayer,
+  nextState: TPlayer
+) => boolean
 
 // Enum for all possible event names
 export enum RoomEventType {
