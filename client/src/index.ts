@@ -126,6 +126,7 @@ export function createRoom<TPlayer extends PlayerBase>(
       const jsonMessage = JSON.stringify(message)
       emitter.emit(RoomEventType.Tx, jsonMessage)
       if (ws?.readyState === WebSocket.OPEN) {
+        console.log('tx', jsonMessage)
         ws.send(jsonMessage)
       }
       emitter.emit(RoomEventType.PlayerMutated, newState)
@@ -219,6 +220,7 @@ export function createRoom<TPlayer extends PlayerBase>(
       ws.onmessage = (event) => {
         try {
           const jsonMessage = event.data as string
+          console.log('rx', jsonMessage)
           emitter.emit(RoomEventType.Rx, jsonMessage)
           const message = JSON.parse(jsonMessage) as WebSocketMessage<TPlayer>
           handleRxMessage(message)
