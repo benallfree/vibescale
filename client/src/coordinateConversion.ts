@@ -15,7 +15,12 @@ export type CoordinateConverter = {
  * Creates coordinate conversion functions for translating between server normalized coordinates (-1:1)
  * and world coordinates with configurable scales for each axis.
  */
-export function createCoordinateConverter(worldScale: WorldScale): CoordinateConverter {
+export function createCoordinateConverter(
+  scaleOrX: number | WorldScale = 1,
+  y?: number,
+  z?: number
+): CoordinateConverter {
+  const worldScale = createWorldScale(scaleOrX, y, z)
   return {
     serverToWorld: (serverPos: Vector3): Vector3 => {
       const worldPos = {
@@ -23,7 +28,7 @@ export function createCoordinateConverter(worldScale: WorldScale): CoordinateCon
         y: serverPos.y * worldScale.y,
         z: serverPos.z * worldScale.z,
       }
-      console.log('serverToWorld', serverPos, worldPos)
+      // console.log('serverToWorld', JSON.stringify({ serverPos, worldPos }))
       return worldPos
     },
 
@@ -33,7 +38,7 @@ export function createCoordinateConverter(worldScale: WorldScale): CoordinateCon
         y: worldPos.y / worldScale.y,
         z: worldPos.z / worldScale.z,
       }
-      console.log('worldToServer', worldPos, serverPos)
+      // console.log('worldToServer', JSON.stringify({ worldPos, serverPos }))
       return serverPos
     },
   }

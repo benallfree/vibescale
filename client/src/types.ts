@@ -1,5 +1,6 @@
 import type { PartialDeep } from 'type-fest'
 import type { PlayerBase, PlayerId } from '../../site/src/server/types'
+import type { CoordinateConverter } from './coordinateConversion'
 import type { Emitter } from './EventEmitter'
 import type { WorldScale } from './coordinateConversion'
 
@@ -75,7 +76,7 @@ export interface RoomOptions<TPlayer extends PlayerBase> {
   endpoint?: string
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
   normalizePlayerState?: (state: PartialDeep<TPlayer>) => TPlayer
-  worldScale?: number | WorldScale
+  coordinateConverter?: CoordinateConverter
   produce?: ProduceFn
 }
 

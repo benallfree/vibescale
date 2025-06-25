@@ -1,4 +1,4 @@
-import { createCoordinateConverter, createWorldScale } from './coordinateConversion'
+import { createCoordinateConverter } from './coordinateConversion'
 import { EventEmitter } from './EventEmitter'
 import { defaultNormalizePlayerState } from './normalizer'
 import { createStateChangeDetector } from './stateChangeDetector'
@@ -65,9 +65,7 @@ export function createRoom<TPlayer extends PlayerBase>(
   const produce = options.produce || defaultProduce
 
   // Create coordinate converter based on worldScale option
-  const worldScale = createWorldScale(options.worldScale || 1)
-  console.log(`World scale: ${worldScale.x}, ${worldScale.y}, ${worldScale.z}`)
-  const coordinateConverter = createCoordinateConverter(worldScale)
+  const coordinateConverter = options.coordinateConverter || createCoordinateConverter(1)
 
   // WebSocket connection management
   let ws: WebSocket | null = null

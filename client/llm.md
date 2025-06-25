@@ -212,7 +212,7 @@ interface RoomOptions<TPlayer extends PlayerBase> {
   endpoint?: string
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
   normalizePlayerState?: (state: PartialDeep<TPlayer>) => TPlayer
-  worldScale?: number | WorldScale // Coordinate conversion scale (default: 1)
+  coordinateConverter?: CoordinateConverter // Coordinate conversion (default: no conversion)
   produce?: ProduceFn // Custom state management function
 }
 
@@ -867,24 +867,24 @@ The version message is sent as the first message after WebSocket connection esta
 
 ## Coordinate Conversion
 
-Vibescale server uses normalized coordinates (-1 to 1) for all axes, but your game may use different coordinate systems. The client library provides automatic coordinate conversion through the `worldScale` option:
+Vibescale server uses normalized coordinates (-1 to 1) for all axes, but your game may use different coordinate systems. The client library provides automatic coordinate conversion through the `coordinateConverter` option:
 
 ```typescript
-import { createRoom, createWorldScale } from 'vibescale'
+import { createRoom, createCoordinateConverter } from 'vibescale'
 
 // Single scale for all axes
 const room = createRoom('my-game', {
-  worldScale: 10 // Maps server -1:1 to world -10:10
+  coordinateConverter: createCoordinateConverter(10) // Maps server -1:1 to world -10:10
 })
 
 // Different scales per axis
 const room = createRoom('my-game', {
-  worldScale: { x: 10, y: 5, z: 20 }
+  coordinateConverter: createCoordinateConverter({ x: 10, y: 5, z: 20 })
 })
 
-// Using the helper function
+// Using the helper function with individual values
 const room = createRoom('my-game', {
-  worldScale: createWorldScale(10, 5, 20) // x=10, y=5, z=20
+  coordinateConverter: createCoordinateConverter(10, 5, 20) // x=10, y=5, z=20
 })
 ```
 
@@ -894,7 +894,7 @@ const room = createRoom('my-game', {
 2. **Incoming** (server to client): Normalized coordinates are automatically converted to world coordinates using your scale
 
 ```typescript
-// With worldScale: 10
+// With coordinateConverter: createCoordinateConverter(10)
 room.mutatePlayer((draft) => {
   draft.position = { x: 5, y: 0, z: -8 } // World coordinates
   // Automatically converted to { x: 0.5, y: 0, z: -0.8 } for server
@@ -923,9 +923,9 @@ type CoordinateConverter = {
 }
 
 // Manual coordinate conversion (if needed)
-import { createCoordinateConverter, createWorldScale } from 'vibescale'
+import { createCoordinateConverter } from 'vibescale'
 
-const converter = createCoordinateConverter(createWorldScale(10))
+const converter = createCoordinateConverter(10)
 
 // Convert world to server coordinates
 const serverPos = converter.worldToServer({ x: 5, y: 0, z: -8 })
