@@ -40,7 +40,7 @@
     <div id="info">WASD to move</div>
     <script type="module">
       import * as THREE from 'https://unpkg.com/three@0.162.0/build/three.module.js'
-      import { createRoom, RoomEventType } from '../client/src/index.ts'
+      import { createRoom, RoomEventType } from '/../client/src/index.ts'
       // Get room name and endpoint from URL query parameters or use defaults
       const thisUrl = new URL(window.location.href)
       thisUrl.pathname = ''
@@ -51,6 +51,7 @@
       // Create and connect to room
       const room = createRoom(roomName, {
         endpoint,
+        worldScale: 10, // Maps server's -1:1 to Three.js -10:10
       })
       // Scene setup
       const scene = new THREE.Scene()
@@ -75,23 +76,30 @@
       const players = new Map()
 
       // Create player mesh
-      function createPlayerMesh(color) {
+      function createPlayerMesh(player) {
         const geometry = new THREE.BoxGeometry()
-        const material = new THREE.MeshBasicMaterial({ color })
-        return new THREE.Mesh(geometry, material)
+        const material = new THREE.MeshBasicMaterial({ color: player.color })
+        const mesh = new THREE.Mesh(geometry, material)
+        
+        // Position and rotation are already converted by the client library
+        mesh.position.set(player.position.x, player.position.y, player.position.z)
+        mesh.rotation.set(player.rotation.x, player.rotation.y, player.rotation.z)
+        
+        return mesh
       }
 
       // Create and connect to room
       room.connect()
 
       // Handle all events
-      room.on(RoomEventType.Any, ({ type, data }) => {
-        console.log('Event:', type, data)
+      room.on(RoomEventType.Any, ({  data }) => {
+        console.log('Event:', data)
       })
 
       // Handle player join
       room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
-        const mesh = createPlayerMesh(player.color)
+        const mesh = createPlayerMesh(player)
+        
         players.set(player.id, { player, mesh })
         scene.add(mesh)
 
@@ -106,6 +114,7 @@
         const playerData = players.get(player.id)
         if (playerData) {
           const { mesh } = playerData
+          // Position and rotation are already converted by the client library
           mesh.position.set(player.position.x, player.position.y, player.position.z)
           mesh.rotation.set(player.rotation.x, player.rotation.y, player.rotation.z)
         }
@@ -189,6 +198,7 @@
 
         if (moved) {
           room.mutatePlayer((draft) => {
+            // Client library automatically converts world coordinates to server coordinates
             draft.position = {
               x: mesh.position.x,
               y: mesh.position.y,

@@ -59,6 +59,26 @@ room.on(RoomEventType.Tx, ({ data: jsonMessage }) => {
   console.log('Message sent:', jsonMessage)
 })
 
+// Handle version information for compatibility checking
+room.on(RoomEventType.Version, ({ data: { version } }) => {
+  console.log('Server version:', version)
+  
+  // Check compatibility with your client
+  if (!isCompatibleVersion(version)) {
+    console.warn('Server version incompatible with client')
+    room.disconnect()
+    // Handle incompatibility (show error, redirect, etc.)
+  }
+})
+
+function isCompatibleVersion(serverVersion: string): boolean {
+  const [major, minor] = serverVersion.split('.').map(Number)
+  const clientMajor = 2 // Your client's major version
+  
+  // Allow same major version, any minor version
+  return major === clientMajor
+}
+
 // Get the room identifier
 const roomId = room.getRoomId() // Returns 'my-room'
 
@@ -85,6 +105,9 @@ enum RoomEventType {
   WebSocketInfo = 'websocket:info',
   Rx = 'rx',
   Tx = 'tx',
+
+  // Version events
+  Version = 'version',
 
   // Any event
   Any = '*',
@@ -116,6 +139,9 @@ interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
   [RoomEventType.Rx]: MessageEvent
   [RoomEventType.Tx]: WebSocketMessage<TPlayer>
 
+  // Version events
+  [RoomEventType.Version]: { version: string }
+
   // Special events
   [RoomEventType.Any]: {
     type: RoomEventType
@@ -145,14 +171,17 @@ interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
    - `Rx`: Emitted when a raw message is received
    - `Tx`: Emitted when a message is sent
 
-4. Special Events
+4. Version Events
+
+   - `Version`: Emitted immediately after connection with server version information for compatibility checking
+
+5. Special Events
    - `Any`: Catches all events with their type and payload
 
 ## Type Definitions
 
 ```typescript
-import type { WritableDraft } from 'immer'
-import type { PlayerBase, PlayerId } from 'vibescale'
+import type { PlayerBase, PlayerId, ProduceFn } from 'vibescale'
 
 // Room interface
 interface Room<TPlayer extends PlayerBase> {
@@ -164,7 +193,7 @@ interface Room<TPlayer extends PlayerBase> {
   // Player access
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
-  mutatePlayer: (mutator: (draft: WritableDraft<TPlayer>) => void) => void
+  mutatePlayer: (mutator: (draft: TPlayer) => void) => void
 
   // Room information
   getRoomId: () => string
@@ -181,7 +210,12 @@ interface RoomOptions<TPlayer extends PlayerBase> {
   endpoint?: string
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
   normalizePlayerState?: (state: PartialDeep<TPlayer>) => TPlayer
+  worldScale?: number | WorldScale // Coordinate conversion scale (default: 1)
+  produce?: ProduceFn // Custom state management function
 }
+
+// Generic produce function type
+type ProduceFn = <T>(state: T, mutator: (draft: T) => void) => T
 
 // State change detector function type
 type StateChangeDetectorFn<TPlayer extends PlayerBase> = (currentState: TPlayer, nextState: TPlayer) => boolean
@@ -212,7 +246,7 @@ The `getEndpointUrl` method:
 
 ## State Management
 
-The library uses Immer for immutable state updates and provides a simple mutation API:
+The library supports configurable state management libraries for immutable updates. By default, it uses a simple shallow copy approach where you handle your own spreading for nested objects, but you can configure it to use libraries like Immer or Mutative:
 
 ```typescript
 // Base player state is flattened (not nested)
@@ -267,9 +301,33 @@ room.mutatePlayer((draft) => {
 })
 ```
 
+### State Management Options
+
+```typescript
+// Default (shallow copy + manual spreading)
+const room = createRoom<GamePlayer>('game-room')
+
+// With Immer
+import { produce } from 'immer'
+const room = createRoom<GamePlayer>('game-room', { produce })
+
+// With Mutative
+import { produce } from 'mutative'
+const room = createRoom<GamePlayer>('game-room', { produce })
+
+// Custom produce function
+import { type ProduceFn } from 'vibescale'
+const customProduce: ProduceFn = <T>(state: T, mutator: (draft: T) => void): T => {
+  const newState = { ...state } as T // Shallow copy
+  mutator(newState)
+  return newState
+}
+const room = createRoom<GamePlayer>('game-room', { produce: customProduce })
+```
+
 The state management system has these key features:
 
-1. Uses Immer for safe state mutations
+1. Configurable state management (default: shallow copy, optional: Immer, Mutative, or custom)
 2. Flattened player state structure (no nested state/server fields)
 3. Type-safe mutations with full TypeScript support
 4. Automatic state change detection
@@ -389,11 +447,12 @@ The reconnection system uses exponential backoff with the following behavior:
 
 1. State Management
 
-   - Use `mutatePlayer` with Immer-style mutations for state updates
+   - Use `mutatePlayer` with safe mutations for state updates
    - Keep mutations minimal and focused
    - Use the draft parameter to safely mutate nested objects and arrays
    - The server applies change detection to all state updates
    - Mutations are batched and optimized automatically
+   - Configure a `produce` function for your preferred state management library (Immer, Mutative, etc.)
 
 2. Type Safety
 
@@ -412,7 +471,7 @@ The reconnection system uses exponential backoff with the following behavior:
 4. Performance
 
    - Only mutate what needs to change
-   - Let Immer handle immutability
+   - Let your configured produce function handle immutability
    - The library automatically handles change detection
    - Clean up resources on disconnect
 
@@ -524,4 +583,121 @@ interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
     data: RoomEventPayloads<TPlayer>[RoomEventType]
   }
 }
+```
+
+## Version/Protocol Compatibility
+
+The Vibescale server sends a version message immediately after WebSocket connection to help clients screen for compatible server versions. This message is sent **before** any other messages, allowing clients to perform early compatibility checks:
+
+```typescript
+// Handle version information for compatibility checking
+room.on(RoomEventType.Version, ({ data: { version } }) => {
+  console.log('Server version:', version)
+  
+  // Check compatibility with your client
+  if (!isCompatibleVersion(version)) {
+    console.warn('Server version incompatible with client')
+    room.disconnect()
+    // Handle incompatibility (show error, redirect, etc.)
+  }
+})
+
+// Example compatibility check function
+function isCompatibleVersion(serverVersion: string): boolean {
+  const [major, minor] = serverVersion.split('.').map(Number)
+  const clientMajor = 2 // Your client's major version
+  
+  // Allow same major version, any minor version
+  return major === clientMajor
+}
+```
+
+The version message structure:
+
+```typescript
+{
+  type: 'version',
+  version: string // Semantic version string (e.g., "2.1.3")
+}
+```
+
+This feature is particularly useful for:
+
+- Ensuring client-server compatibility before establishing gameplay
+- Gracefully handling version mismatches in production
+- Implementing different behavior based on server capabilities
+- Providing clear error messages to users about version incompatibility
+- Supporting backward compatibility strategies
+
+The version message is sent as the first message after WebSocket connection establishment, before the local player state message, allowing immediate compatibility validation.
+
+## Coordinate Conversion
+
+Vibescale server uses normalized coordinates (-1 to 1) for all axes, but your game may use different coordinate systems. The client library provides automatic coordinate conversion through the `worldScale` option:
+
+```typescript
+import { createRoom, createWorldScale } from 'vibescale'
+
+// Single scale for all axes
+const room = createRoom('my-game', {
+  worldScale: 10 // Maps server -1:1 to world -10:10
+})
+
+// Different scales per axis
+const room = createRoom('my-game', {
+  worldScale: { x: 10, y: 5, z: 20 }
+})
+
+// Using the helper function
+const room = createRoom('my-game', {
+  worldScale: createWorldScale(10, 5, 20) // x=10, y=5, z=20
+})
+```
+
+### How Coordinate Conversion Works
+
+1. **Outgoing** (client to server): World coordinates are automatically converted to normalized coordinates (-1:1) before sending
+2. **Incoming** (server to client): Normalized coordinates are automatically converted to world coordinates using your scale
+
+```typescript
+// With worldScale: 10
+room.mutatePlayer((draft) => {
+  draft.position = { x: 5, y: 0, z: -8 } // World coordinates
+  // Automatically converted to { x: 0.5, y: 0, z: -0.8 } for server
+})
+
+// When receiving player updates:
+room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+  console.log(player.position) // Already converted back to world coordinates
+  // Server sent { x: 0.3, y: 0, z: -0.6 }
+  // You receive { x: 3, y: 0, z: -6 }
+})
+```
+
+### Coordinate Conversion Types
+
+```typescript
+type WorldScale = {
+  x: number
+  y: number
+  z: number
+}
+
+type CoordinateConverter = {
+  serverToWorld: (serverPos: Vector3) => Vector3
+  worldToServer: (worldPos: Vector3) => Vector3
+}
+
+// Manual coordinate conversion (if needed)
+import { createCoordinateConverter, createWorldScale } from 'vibescale'
+
+const converter = createCoordinateConverter(createWorldScale(10))
+
+// Convert world to server coordinates
+const serverPos = converter.worldToServer({ x: 5, y: 0, z: -8 })
+// Result: { x: 0.5, y: 0, z: -0.8 }
+
+// Convert server to world coordinates
+const worldPos = converter.serverToWorld({ x: 0.3, y: 0, z: -0.6 })
+// Result: { x: 3, y: 0, z: -6 }
 ```

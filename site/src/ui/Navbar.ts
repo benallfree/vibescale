@@ -1,4 +1,5 @@
 import van from 'vanjs-core'
+import packageJson from '../../package.json'
 
 const { div, nav, button, span, a } = van.tags
 
@@ -41,6 +42,7 @@ export const Navbar = () => {
     {
       class: 'shadow-md fixed w-full top-0 left-0 z-50 border-b border-gray-200',
     },
+    `fubar`,
     [
       div(
         {
@@ -60,7 +62,7 @@ export const Navbar = () => {
                     'data-navigo': true,
                     class: 'text-xl font-bold text-primary',
                   },
-                  'Vibescale'
+                  `Vibescale v${packageJson.version}`
                 ),
               ]),
               // Desktop navigation

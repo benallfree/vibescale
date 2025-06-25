@@ -1,9 +1,14 @@
-import type { WritableDraft } from 'immer'
 import type { PartialDeep } from 'type-fest'
 import type { PlayerBase, PlayerId, StateChangeDetectorFn } from '../../site/src/server/types'
 import type { Emitter } from './EventEmitter'
+import type { WorldScale } from './coordinateConversion'
 
 export * from '../../site/src/server/types'
+export * from './coordinateConversion'
+
+// Generic produce function type that works with immer, mutative, or custom implementations
+// This allows the draft type to be different from the input type (e.g., WritableDraft<T>, Draft<T>)
+export type ProduceFn = <T>(state: T, mutator: (draft: any) => void) => T
 
 export type PlayerEventCallback = (player: PlayerBase) => void
 
@@ -24,6 +29,9 @@ export enum RoomEventType {
   WebSocketInfo = 'websocket:info',
   Rx = 'rx',
   Tx = 'tx',
+
+  // Version events
+  Version = 'version',
 
   // Any event
   Any = '*',
@@ -49,6 +57,8 @@ export interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
   [RoomEventType.Rx]: string
   [RoomEventType.Tx]: string
 
+  [RoomEventType.Version]: { version: string }
+
   [RoomEventType.Any]: AnyEventPayload<TPlayer>
 }
 
@@ -59,12 +69,14 @@ export interface RoomOptions<TPlayer extends PlayerBase> {
   endpoint?: string
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
   normalizePlayerState?: (state: PartialDeep<TPlayer>) => TPlayer
+  worldScale?: number | WorldScale
+  produce?: ProduceFn
 }
 
 export type Room<TPlayer extends PlayerBase = PlayerBase> = {
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
-  mutatePlayer: (mutator: (oldState: WritableDraft<TPlayer>) => void) => void
+  mutatePlayer: (mutator: (draft: TPlayer) => void) => void
   getRoomId: () => string
   disconnect: () => void
   isConnected: () => boolean

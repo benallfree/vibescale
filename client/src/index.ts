@@ -1,12 +1,12 @@
-import { produce } from 'immer'
-import urlJoin from 'url-join'
 import { hasSignificantStateChange } from '../../site/src/server/stateChangeDetector'
+import { createCoordinateConverter, createWorldScale } from './coordinateConversion'
 import { EventEmitter } from './EventEmitter'
 import {
   MessageType,
   RoomEventType,
   type PlayerBase,
   type PlayerId,
+  type ProduceFn,
   type Room,
   type RoomEvents,
   type RoomOptions,
@@ -14,16 +14,42 @@ import {
 } from './types'
 
 export * from '../../site/src/server/stateChangeDetector'
+export * from './coordinateConversion'
 export * from './EventEmitter'
 export * from './types'
 
 // Helper for scheduling microtasks
 const nextTick = (fn: () => void) => Promise.resolve().then(fn)
 
+// Default produce function that requires manual spreading/copying in the mutator
+const defaultProduce: ProduceFn = <T>(state: T, mutator: (draft: T) => void): T => {
+  // Create a shallow copy for the mutator to work with
+  // Users must handle their own copying/spreading for nested objects
+  const draft = { ...state } as T
+  mutator(draft)
+  return draft
+}
+
+/**
+ * Creates a new room instance with configurable state management.
+ *
+ * @example
+ * // With default produce (structuredClone-based)
+ * const room = createRoom('my-room')
+ *
+ * // With immer
+ * import { produce } from 'immer'
+ * const room = createRoom('my-room', { produce })
+ *
+ * // With mutative
+ * import { produce } from 'mutative'
+ * const room = createRoom('my-room', { produce })
+ */
 export function createRoom<TPlayer extends PlayerBase>(
   roomName: string,
   options: RoomOptions<TPlayer> = {}
 ): Room<TPlayer> {
+  console.log('createRoom', roomName, options)
   if (!roomName) {
     throw new Error(`createRoom(roomName) requires a roomName. ${roomName} is not a valid roomName.`)
   }
@@ -32,6 +58,14 @@ export function createRoom<TPlayer extends PlayerBase>(
   const players = new Map<PlayerId, TPlayer>()
   const playerDeltaBases = new Map<PlayerId, TPlayer>()
   const stateChangeDetector = options.stateChangeDetectorFn || hasSignificantStateChange
+
+  // Use custom produce function if provided, otherwise use default
+  const produce = options.produce || defaultProduce
+
+  // Create coordinate converter based on worldScale option
+  const worldScale = createWorldScale(options.worldScale || 1)
+  console.log(`World scale: ${worldScale.x}, ${worldScale.y}, ${worldScale.z}`)
+  const coordinateConverter = createCoordinateConverter(worldScale)
 
   // WebSocket connection management
   let ws: WebSocket | null = null
@@ -75,10 +109,15 @@ export function createRoom<TPlayer extends PlayerBase>(
       }
       playerDeltaBases.set(playerId, newState)
 
+      // Convert world coordinates to server normalized coordinates before sending
+      const serverState = produce(newState, (draft) => {
+        draft.position = coordinateConverter.worldToServer(draft.position)
+      })
+
       // Send to server
       const message: WebSocketMessage = {
         type: MessageType.PlayerState,
-        ...newState,
+        ...serverState,
       }
       const jsonMessage = JSON.stringify(message)
       emitter.emit(RoomEventType.Tx, jsonMessage)
@@ -118,7 +157,10 @@ export function createRoom<TPlayer extends PlayerBase>(
         test: customEndpoint === undefined ? defaultEndpoint : customEndpoint,
         roomName,
       })
-      const finalEndpoint = urlJoin(customEndpoint === undefined ? defaultEndpoint : customEndpoint, roomName)
+      const finalEndpoint = new URL(
+        roomName,
+        customEndpoint === undefined ? defaultEndpoint : customEndpoint
+      ).toString()
       console.log('***finalEndpoint', { finalEndpoint })
       nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { finalEndpoint }))
 
@@ -189,7 +231,12 @@ export function createRoom<TPlayer extends PlayerBase>(
   function handleRxMessage(message: WebSocketMessage<TPlayer>) {
     switch (message.type) {
       case MessageType.PlayerState:
-        const player = message
+        const serverPlayer = message
+        // Convert server normalized coordinates to world coordinates
+        const player = produce(serverPlayer, (draft) => {
+          draft.position = coordinateConverter.serverToWorld(draft.position)
+        })
+
         if (player.isLocal) {
           playerId = player.id
         }
@@ -204,6 +251,10 @@ export function createRoom<TPlayer extends PlayerBase>(
           players.delete(player.id)
           emitter.emit(RoomEventType.PlayerLeft, player)
         }
+        break
+
+      case MessageType.Version:
+        emitter.emit(RoomEventType.Version, message)
         break
 
       default:

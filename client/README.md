@@ -24,9 +24,11 @@ const room = createRoom('my-game', {
 
 // Connect to the room (must be called explicitly)
 room.connect()
+```
 
 > **Important**: Room connections are completely ephemeral. Disconnecting and reconnecting will produce a new player ID, and none of the old data should be trusted. Each connection is treated as a fresh start - there is no session persistence between connections.
 
+```ts
 // Listen for connection events
 room.on(RoomEventType.Connected, ({ data }) => {
   console.log('Connected to room')
@@ -104,6 +106,8 @@ function createRoom<TPlayer extends PlayerBase = PlayerBase>(
 interface RoomOptions<TPlayer extends PlayerBase = PlayerBase> {
   endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
+  worldScale?: number | WorldScale // Coordinate conversion scale (default: 1)
+  produce?: ProduceFn // Custom state management function
 }
 ```
 
@@ -177,8 +181,6 @@ The event system provides full type safety:
 ### Room Interface
 
 ```typescript
-import type { WritableDraft } from 'immer'
-
 interface Room<TPlayer extends PlayerBase> {
   // Event handling
   on: <E extends RoomEventType>(event: E, callback: (event: EmitterEvent<RoomEvents<TPlayer>, E>) => void) => () => void
@@ -188,7 +190,7 @@ interface Room<TPlayer extends PlayerBase> {
   // Player access
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
-  mutatePlayer: (mutator: (draft: WritableDraft<TPlayer>) => void) => void
+  mutatePlayer: (mutator: (draft: TPlayer) => void) => void
 
   // Room information
   getRoomId: () => string
@@ -244,13 +246,94 @@ room.mutatePlayer((draft) => {
 })
 ```
 
+## State Management Options
+
+Vibescale supports different state management libraries for immutable updates. By default, it uses a simple shallow copy approach where you handle your own spreading for nested objects, but you can configure it to use libraries like Immer or Mutative for more sophisticated immutable updates.
+
+### Default (shallow copy + manual spreading)
+
+```typescript
+// Uses built-in shallow copy - you handle nested object copying
+const room = createRoom('my-game')
+
+room.mutatePlayer((draft) => {
+  // Top-level properties can be mutated directly
+  draft.health = 100
+  
+  // For nested objects, you need to spread manually
+  draft.position = { ...draft.position, x: 10 }
+  
+  // For arrays, spread or use array methods that return new arrays
+  draft.inventory = [...draft.inventory, newItem]
+})
+```
+
+### With Immer
+
+```typescript
+import { produce } from 'immer'
+import { createRoom } from 'vibescale'
+
+// Configure room to use Immer's produce function
+const room = createRoom('my-game', {
+  produce // Pass immer's produce function
+})
+
+// Now you can use Immer's features - draft will be WritableDraft<TPlayer>
+room.mutatePlayer((draft) => {
+  draft.position.x += delta.x // Safe mutations with Immer's proxy
+  draft.inventory.push(newItem) // Array operations
+})
+```
+
+### With Mutative
+
+```typescript
+import { produce } from 'mutative'
+import { createRoom } from 'vibescale'
+
+// Configure room to use Mutative's produce function
+const room = createRoom('my-game', {
+  produce // Pass mutative's produce function
+})
+
+// Now draft will be Mutative's Draft<TPlayer> type
+room.mutatePlayer((draft) => {
+  draft.position = newPosition // Fast immutable updates with Mutative's proxy
+})
+```
+
+### Custom Produce Function
+
+You can also provide your own state management implementation:
+
+```typescript
+import { createRoom, type ProduceFn } from 'vibescale'
+
+const customProduce: ProduceFn = <T>(state: T, mutator: (draft: T) => void): T => {
+  // Your custom immutable update logic - this example does shallow copy
+  const newState = { ...state } as T
+  mutator(newState)
+  return newState
+}
+
+const room = createRoom('my-game', {
+  produce: customProduce
+})
+```
+
 ## Room Options
 
 ```typescript
 interface RoomOptions<TPlayer extends PlayerBase = PlayerBase> {
   endpoint?: string // Custom server URL (default: https://vibescale.benallfree.com/)
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer> // Custom state change detection
+  worldScale?: number | WorldScale // Coordinate conversion scale (default: 1)  
+  produce?: ProduceFn // Custom state management function
 }
+
+// Generic produce function type
+type ProduceFn = <T>(state: T, mutator: (draft: T) => void) => T
 ```
 
 ## Custom State
@@ -316,6 +399,35 @@ The Vibescale server provides:
 - Automatic cleanup of disconnected players
 - CORS support for cross-origin connections
 
+## Version/Protocol Compatibility
+
+The Vibescale server sends a version message immediately after WebSocket connection to help clients screen for compatible server versions:
+
+```typescript
+// Listen for version information
+room.on(RoomEventType.Version, ({ data: { version } }) => {
+  console.log('Server version:', version)
+  
+  // Check compatibility with your client
+  if (!isCompatibleVersion(version)) {
+    console.warn('Server version incompatible with client')
+    room.disconnect()
+    // Handle incompatibility (show error, redirect, etc.)
+  }
+})
+
+// Example compatibility check function
+function isCompatibleVersion(serverVersion: string): boolean {
+  const [major, minor] = serverVersion.split('.').map(Number)
+  const clientMajor = 2 // Your client's major version
+  
+  // Allow same major version, any minor version
+  return major === clientMajor
+}
+```
+
+The version message is sent before any other messages, allowing clients to perform early compatibility checks and gracefully handle version mismatches. This is particularly useful when deploying breaking changes or when maintaining backward compatibility across different client versions.
+
 ## State Change Detection
 
 The library includes built-in state change detection to optimize network traffic:
@@ -352,13 +464,17 @@ import { createRoom, RoomEventType } from 'vibescale'
 const scene = new THREE.Scene()
 const players = new Map<string, THREE.Mesh>()
 
-const room = createRoom('three-js-room')
+// Create room with coordinate conversion for Three.js world space
+const room = createRoom('three-js-room', {
+  worldScale: 10 // Maps server -1:1 to Three.js -10:10
+})
 room.connect()
 
 // Handle player updates
 room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
   const mesh = players.get(player.id)
   if (mesh) {
+    // Coordinates are already converted to world space
     const pos = player.position
     const rot = player.rotation
     mesh.position.set(pos.x, pos.y, pos.z)
@@ -372,6 +488,7 @@ room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
   const material = new THREE.MeshBasicMaterial({ color: player.color })
   const mesh = new THREE.Mesh(geometry, material)
 
+  // Coordinates are already converted to world space
   const pos = player.position
   const rot = player.rotation
   mesh.position.set(pos.x, pos.y, pos.z)
@@ -393,10 +510,72 @@ room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
 // Update local player position and rotation
 function onPlayerMove(position: Vector3, rotation: Vector3) {
   room.mutatePlayer((draft) => {
+    // Use world coordinates directly - conversion happens automatically
     draft.position = position
     draft.rotation = rotation
   })
 }
+```
+
+## Coordinate Conversion
+
+Vibescale server uses normalized coordinates (-1 to 1) for all axes, but your game may use different coordinate systems. The client library provides automatic coordinate conversion:
+
+```typescript
+import { createRoom, createWorldScale } from 'vibescale'
+
+// Single scale for all axes
+const room = createRoom('my-game', {
+  worldScale: 10 // Maps server -1:1 to world -10:10
+})
+
+// Different scales per axis
+const room = createRoom('my-game', {
+  worldScale: { x: 10, y: 5, z: 20 }
+})
+
+// Using the helper function
+const room = createRoom('my-game', {
+  worldScale: createWorldScale(10, 5, 20) // x=10, y=5, z=20
+})
+```
+
+### How Coordinate Conversion Works
+
+1. **Outgoing** (client to server): World coordinates are automatically converted to normalized coordinates (-1:1) before sending
+2. **Incoming** (server to client): Normalized coordinates are automatically converted to world coordinates using your scale
+
+```typescript
+// With worldScale: 10
+room.mutatePlayer((draft) => {
+  draft.position = { x: 5, y: 0, z: -8 } // World coordinates
+  // Automatically converted to { x: 0.5, y: 0, z: -0.8 } for server
+})
+
+// When receiving player updates:
+room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+  console.log(player.position) // Already converted back to world coordinates
+  // Server sent { x: 0.3, y: 0, z: -0.6 }
+  // You receive { x: 3, y: 0, z: -6 }
+})
+```
+
+### Manual Coordinate Conversion
+
+You can also use the conversion functions directly:
+
+```typescript
+import { createCoordinateConverter, createWorldScale } from 'vibescale'
+
+const converter = createCoordinateConverter(createWorldScale(10))
+
+// Convert world to server coordinates
+const serverPos = converter.worldToServer({ x: 5, y: 0, z: -8 })
+// Result: { x: 0.5, y: 0, z: -0.8 }
+
+// Convert server to world coordinates
+const worldPos = converter.serverToWorld({ x: 0.3, y: 0, z: -0.6 })
+// Result: { x: 3, y: 0, z: -6 }
 ```
 
 ## License

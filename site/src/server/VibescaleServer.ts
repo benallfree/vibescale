@@ -269,13 +269,14 @@ export class VibescaleServer extends DurableObject<Env> {
   }
 
   private generateSpawnPosition(): Vector3 {
-    // Generate a random position in a circle around the center
-    const radius = 5 // Distance from center
+    // Generate a random position in a circle around the center (0, 0)
+    // Using normalized coordinates (-1 to 1 scale)
+    const radius = Math.random() // Random radius between 0-1 for full circle coverage
     const angle = Math.random() * Math.PI * 2 // Random angle
     return {
-      x: Math.cos(angle) * radius,
+      x: Math.cos(angle) * radius, // Center at 0 with circular offset
       y: 0,
-      z: Math.sin(angle) * radius,
+      z: Math.sin(angle) * radius, // Center at 0 with circular offset
     }
   }
 
