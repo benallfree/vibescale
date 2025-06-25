@@ -153,29 +153,8 @@ export function createRoom<TPlayer extends PlayerBase>(
       return ws?.readyState === WebSocket.OPEN
     },
 
-    getEndpointUrl: () => {
-      // Initialize WebSocket connection
-      const defaultEndpoint = `https://vibescale.benallfree.com`
-      nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { defaultEndpoint }))
-      const customEndpoint = options.endpoint
-      console.log('***customEndpoint', { customEndpoint, test: customEndpoint === undefined })
-      nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { customEndpoint }))
-      console.log('***customEndpoint2', {
-        test: customEndpoint === undefined ? defaultEndpoint : customEndpoint,
-        roomName,
-      })
-      const finalEndpoint = new URL(
-        roomName,
-        customEndpoint === undefined ? defaultEndpoint : customEndpoint
-      ).toString()
-      console.log('***finalEndpoint', { finalEndpoint })
-      nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { finalEndpoint }))
-
-      return finalEndpoint
-    },
-
     connect() {
-      const wsEndpoint = `${room.getEndpointUrl()}/websocket`
+      const wsEndpoint = new URL(`${roomName}/websocket`, options.endpoint || 'https://vibescale.benallfree.com')
       nextTick(() => emitter.emit(RoomEventType.WebSocketInfo, { wsEndpoint }))
 
       ws = new WebSocket(wsEndpoint)

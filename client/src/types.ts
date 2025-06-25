@@ -52,6 +52,7 @@ export interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
   [RoomEventType.PlayerJoined]: TPlayer
   [RoomEventType.PlayerLeft]: TPlayer
   [RoomEventType.PlayerUpdated]: TPlayer
+  [RoomEventType.PlayerMutated]: TPlayer
   [RoomEventType.PlayerError]: { type: string; error: string; details?: any }
 
   [RoomEventType.WebSocketInfo]: Record<string, any>
@@ -82,6 +83,5 @@ export type Room<TPlayer extends PlayerBase = PlayerBase> = {
   getRoomId: () => string
   disconnect: () => void
   isConnected: () => boolean
-  getEndpointUrl: () => string
   connect: () => void
 } & Emitter<RoomEvents<TPlayer>>
