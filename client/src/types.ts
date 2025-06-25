@@ -2,12 +2,11 @@ import type { PartialDeep } from 'type-fest'
 import type { PlayerBase, PlayerId } from '../../site/src/server/types'
 import type { CoordinateConverter } from './coordinateConversion'
 import type { Emitter } from './EventEmitter'
-import type { WorldScale } from './coordinateConversion'
 
 export * from '../../site/src/server/types'
 export * from './coordinateConversion'
 
-export type ProduceFn = <T>(state: T, mutator: (draft: any) => void) => T
+export type ProduceFn<T> = (state: T, mutator: (draft: T) => void) => T
 
 /**
  * Function type for detecting significant state changes between two player states
@@ -77,7 +76,7 @@ export interface RoomOptions<TPlayer extends PlayerBase> {
   stateChangeDetectorFn?: StateChangeDetectorFn<TPlayer>
   normalizePlayerState?: (state: PartialDeep<TPlayer>) => TPlayer
   coordinateConverter?: CoordinateConverter
-  produce?: ProduceFn
+  produce?: ProduceFn<TPlayer>
 }
 
 export type PlayerMutator<TPlayer extends PlayerBase = PlayerBase> = (draft: TPlayer) => void

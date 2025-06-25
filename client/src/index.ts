@@ -7,7 +7,6 @@ import {
   RoomEventType,
   type PlayerBase,
   type PlayerId,
-  type ProduceFn,
   type Room,
   type RoomEvents,
   type RoomOptions,
@@ -23,10 +22,10 @@ export * from './types'
 const nextTick = (fn: () => void) => Promise.resolve().then(fn)
 
 // Default produce function that requires manual spreading/copying in the mutator
-const defaultProduce: ProduceFn = <T>(state: T, mutator: (draft: T) => void): T => {
-  // Create a shallow copy for the mutator to work with
+const defaultProduce = <TPlayer extends PlayerBase>(state: TPlayer, mutator: (draft: TPlayer) => void): TPlayer => {
+  // Create a deep copy for the mutator to work with
   // Users must handle their own copying/spreading for nested objects
-  const draft = { ...state } as T
+  const draft = structuredClone(state)
   mutator(draft)
   return draft
 }
@@ -62,7 +61,7 @@ export function createRoom<TPlayer extends PlayerBase>(
   const normalizePlayerState = options.normalizePlayerState || defaultNormalizePlayerState
 
   // Use custom produce function if provided, otherwise use default
-  const produce = options.produce || defaultProduce
+  const produce = options.produce || defaultProduce<TPlayer>
 
   // Create coordinate converter based on worldScale option
   const coordinateConverter = options.coordinateConverter || createCoordinateConverter(1)
