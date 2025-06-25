@@ -1,3 +1,4 @@
+import { copyFileSync } from 'fs'
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
@@ -9,4 +10,9 @@ export default defineConfig({
   treeshake: true,
   minify: true,
   outDir: 'dist',
+  onSuccess: (config) => {
+    copyFileSync('README.md', '../README.md')
+    copyFileSync('llm.md', '../llm.md')
+    console.log('README.md and llm.md copied to root directory')
+  },
 })
