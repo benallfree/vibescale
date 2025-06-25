@@ -94,11 +94,11 @@ export function createRoom<TPlayer extends PlayerBase>(
     },
 
     mutatePlayer: (mutator) => {
-      if (!playerId) return
+      if (!playerId) return null
 
       // Update in players map
       const currentPlayer = players.get(playerId)
-      if (!currentPlayer) return
+      if (!currentPlayer) return null
       if (!playerDeltaBases.has(playerId)) {
         playerDeltaBases.set(playerId, currentPlayer)
       }
@@ -109,7 +109,7 @@ export function createRoom<TPlayer extends PlayerBase>(
       // console.log('mutatePlayer', JSON.stringify({ baseState, newState }, null, 2))
 
       if (!stateChangeDetector(baseState, newState)) {
-        return
+        return newState
       }
       playerDeltaBases.set(playerId, newState)
 

@@ -79,11 +79,13 @@ export interface RoomOptions<TPlayer extends PlayerBase> {
   produce?: ProduceFn
 }
 
+export type PlayerMutator<TPlayer extends PlayerBase = PlayerBase> = (draft: TPlayer) => void
+
 export type Room<TPlayer extends PlayerBase = PlayerBase> = {
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
   getAllPlayers: () => TPlayer[]
-  mutatePlayer: (mutator: (draft: TPlayer) => void) => void
+  mutatePlayer: (mutator: PlayerMutator<TPlayer>) => TPlayer | null
   getRoomId: () => string
   disconnect: () => void
   isConnected: () => boolean
