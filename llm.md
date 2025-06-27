@@ -31,17 +31,17 @@ room.on(RoomEventType.Disconnected, ({ data }) => {
 })
 
 // Handle player events
-room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerJoined, ({ data: player }) => {
   console.log('Player joined:', player.id)
   console.log('Player color:', player.color)
   console.log('Initial position:', player.position)
 })
 
-room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerLeft, ({ data: player }) => {
   console.log('Player left:', player.id)
 })
 
-room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerUpdated, ({ data: player }) => {
   console.log('Player updated:', player.id)
   console.log('New position:', player.position)
   console.log('New rotation:', player.rotation)
@@ -97,11 +97,14 @@ enum RoomEventType {
   Disconnected = 'disconnected',
   Error = 'error',
 
-  // Player events
-  PlayerJoined = 'player:joined',
-  PlayerLeft = 'player:left',
-  PlayerUpdated = 'player:updated',
-  PlayerError = 'player:error',
+  // Remote player events
+  RemotePlayerJoined = 'remote:player:joined',
+  RemotePlayerLeft = 'remote:player:left',
+  RemotePlayerUpdated = 'remote:player:updated',
+
+  // Local player events
+  LocalPlayerMutated = 'local:player:mutated',
+  AfterLocalPlayerMutated = 'local:player:after:mutated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',
@@ -126,20 +129,19 @@ interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
     details?: any
   }
 
-  // Player events
-  [RoomEventType.PlayerJoined]: TPlayer
-  [RoomEventType.PlayerLeft]: TPlayer
-  [RoomEventType.PlayerUpdated]: TPlayer
-  [RoomEventType.PlayerError]: {
-    type: string
-    error: string
-    details?: any
-  }
+  // Remote player events
+  [RoomEventType.RemotePlayerJoined]: TPlayer
+  [RoomEventType.RemotePlayerLeft]: TPlayer
+  [RoomEventType.RemotePlayerUpdated]: TPlayer
+
+  // Local player events
+  [RoomEventType.LocalPlayerMutated]: TPlayer
+  [RoomEventType.AfterLocalPlayerMutated]: TPlayer
 
   // WebSocket events
   [RoomEventType.WebSocketInfo]: Record<string, any>
-  [RoomEventType.Rx]: MessageEvent
-  [RoomEventType.Tx]: WebSocketMessage<TPlayer>
+  [RoomEventType.Rx]: string
+  [RoomEventType.Tx]: string
 
   // Version events
   [RoomEventType.Version]: { version: string }
@@ -162,10 +164,11 @@ interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
 
 2. Player Events
 
-   - `PlayerJoined`: Emitted when a new player joins with full player state
-   - `PlayerLeft`: Emitted when a player leaves with their last state
-   - `PlayerUpdated`: Emitted when any player's state changes
-   - `PlayerError`: Emitted for player-specific errors
+   - `RemotePlayerJoined`: Emitted when a new remote player joins with full player state
+   - `RemotePlayerLeft`: Emitted when a remote player leaves with their last state
+   - `RemotePlayerUpdated`: Emitted when any remote player's state changes
+   - `LocalPlayerMutated`: Emitted when the local player's state is mutated
+   - `AfterLocalPlayerMutated`: Emitted after the local player's state mutation is complete
 
 3. WebSocket Events
 
@@ -195,7 +198,8 @@ interface Room<TPlayer extends PlayerBase> {
   // Player access
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
-  mutatePlayer: (mutator: (draft: TPlayer) => void) => void
+  getAllPlayers: () => TPlayer[]
+  mutateLocalPlayer: (mutator: (draft: TPlayer) => void) => TPlayer | null
 
   // Room information
   getRoomId: () => string
@@ -435,14 +439,14 @@ room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
 })
 
 // Update local player using Immer-style mutations
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position = { x: 10, y: 0, z: 5 }
   draft.health = 100
   draft.stamina = 100
 })
 
 // Another mutation example
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position.x += 1 // Safe to mutate nested objects
   draft.effects.push('shield') // Array mutations are safe
 })
@@ -497,12 +501,12 @@ const room = createRoom<GamePlayer>('game-room')
 const players = new Map<PlayerId, GamePlayer>()
 
 // Handle player updates
-room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerJoined, ({ data: player }) => {
   players.set(player.id, player)
   console.log(`Player ${player.id} joined with health: ${player.health}`)
 })
 
-room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerUpdated, ({ data: player }) => {
   players.set(player.id, player)
   console.log(`Player ${player.id} updated:`)
   console.log('Position:', player.position)
@@ -510,7 +514,7 @@ room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
   console.log('Effects:', player.effects)
 })
 
-room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerLeft, ({ data: player }) => {
   players.delete(player.id)
   console.log(`Player ${player.id} left`)
 })
@@ -523,7 +527,7 @@ room.on(RoomEventType.Error, ({ data: { message, error } }) => {
 
 // Update local player
 function updatePlayerState(position: Vector3, health: number, stamina: number, effects: string[]) {
-  room.mutatePlayer((draft) => {
+  room.mutateLocalPlayer((draft) => {
     draft.position = position
     draft.health = health
     draft.stamina = stamina
@@ -681,7 +685,7 @@ The reconnection system uses exponential backoff with the following behavior:
 
 1. State Management
 
-   - Use `mutatePlayer` with safe mutations for state updates
+   - Use `mutateLocalPlayer` with safe mutations for state updates
    - Keep mutations minimal and focused
    - Use the draft parameter to safely mutate nested objects and arrays
    - The server applies change detection to all state updates
@@ -744,7 +748,7 @@ room.on(RoomEventType.Connected, ({ name, data }) => {
 })
 
 // Player event with typed data
-room.on(RoomEventType.PlayerJoined, ({ name, data: player }) => {
+room.on(RoomEventType.RemotePlayerJoined, ({ name, data: player }) => {
   console.log(`Player ${player.id} joined`)
 })
 
@@ -895,7 +899,7 @@ const room = createRoom('my-game', {
 
 ```typescript
 // With coordinateConverter: createCoordinateConverter(10)
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position = { x: 5, y: 0, z: -8 } // World coordinates
   // Automatically converted to { x: 0.5, y: 0, z: -0.8 } for server
 })

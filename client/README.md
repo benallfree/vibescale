@@ -49,7 +49,7 @@ room.on(RoomEventType.Disconnected, ({ data }) => {
 })
 
 // Handle player updates
-room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerUpdated, ({ data: player }) => {
   console.log('Player updated:', player.id)
   console.log('Position:', player.position)
   console.log('Rotation:', player.rotation)
@@ -57,12 +57,12 @@ room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
 })
 
 // Handle player joins/leaves
-room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerJoined, ({ data: player }) => {
   console.log('New player:', player.id)
   console.log('Color:', player.color)
 })
 
-room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerLeft, ({ data: player }) => {
   console.log('Player left:', player.id)
 })
 
@@ -80,7 +80,7 @@ const localPlayer = room.getLocalPlayer()
 const otherPlayer = room.getPlayer('some-player-id')
 
 // Update local player state using Immer mutations
-room.mutatePlayer(draft => {
+room.mutateLocalPlayer(draft => {
   draft.position = { x: 10, y: 5, z: 0 }
   draft.rotation = { x: 0, y: Math.PI / 2, z: 0 }
 })
@@ -131,16 +131,22 @@ enum RoomEventType {
   Disconnected = 'disconnected',
   Error = 'error',
 
-  // Player events
-  PlayerJoined = 'player:joined',
-  PlayerLeft = 'player:left',
-  PlayerUpdated = 'player:updated',
-  PlayerError = 'player:error',
+  // Remote player events
+  RemotePlayerJoined = 'remote:player:joined',
+  RemotePlayerLeft = 'remote:player:left',
+  RemotePlayerUpdated = 'remote:player:updated',
+
+  // Local player events
+  LocalPlayerMutated = 'local:player:mutated',
+  AfterLocalPlayerMutated = 'local:player:after:mutated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',
   Rx = 'rx',
   Tx = 'tx',
+
+  // Version events
+  Version = 'version',
 
   // Any event
   Any = '*',
@@ -201,7 +207,8 @@ interface Room<TPlayer extends PlayerBase> {
   // Player access
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
-  mutatePlayer: (mutator: (draft: TPlayer) => void) => void
+  getAllPlayers: () => TPlayer[]
+  mutateLocalPlayer: (mutator: (draft: TPlayer) => void) => TPlayer | null
 
   // Room information
   getRoomId: () => string
@@ -243,7 +250,7 @@ interface GamePlayer extends PlayerBase {
 const room = createRoom<GamePlayer>('my-game')
 
 // TypeScript will now enforce your custom types
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position = { x: 10, y: 5, z: 0 }
   draft.rotation = { x: 0, y: Math.PI / 2, z: 0 }
   draft.health = 100
@@ -251,7 +258,7 @@ room.mutatePlayer((draft) => {
 })
 
 // You can also mutate nested objects and arrays safely
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position.x += 1 // Safe to mutate nested objects
   draft.effects = [...(draft.effects || []), 'shield'] // Safe array operations
 })
@@ -267,7 +274,7 @@ Vibescale supports different state management libraries for immutable updates. B
 // Uses built-in shallow copy - you handle nested object copying
 const room = createRoom('my-game')
 
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   // Top-level properties can be mutated directly
   draft.health = 100
   
@@ -291,7 +298,7 @@ const room = createRoom('my-game', {
 })
 
 // Now you can use Immer's features - draft will be WritableDraft<TPlayer>
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position.x += delta.x // Safe mutations with Immer's proxy
   draft.inventory.push(newItem) // Array operations
 })
@@ -309,7 +316,7 @@ const room = createRoom('my-game', {
 })
 
 // Now draft will be Mutative's Draft<TPlayer> type
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position = newPosition // Fast immutable updates with Mutative's proxy
 })
 ```
@@ -470,7 +477,7 @@ interface GamePlayer extends PlayerBase {
 const room = createRoom<GamePlayer>('my-game')
 
 // Update state with mutations
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   // Update position and game state
   draft.position = { x: 10, y: 5, z: 0 }
   draft.health = 100
@@ -478,7 +485,7 @@ room.mutatePlayer((draft) => {
 })
 
 // Another mutation example
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   // Update nested fields and arrays
   draft.position.x += 1
   draft.rotation.y = Math.PI / 2
@@ -699,7 +706,7 @@ const room = createRoom('three-js-room', {
 room.connect()
 
 // Handle player updates
-room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerUpdated, ({ data: player }) => {
   const mesh = players.get(player.id)
   if (mesh) {
     // Coordinates are already converted to world space
@@ -711,7 +718,7 @@ room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
 })
 
 // Handle new players
-room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerJoined, ({ data: player }) => {
   const geometry = new THREE.BoxGeometry()
   const material = new THREE.MeshBasicMaterial({ color: player.color })
   const mesh = new THREE.Mesh(geometry, material)
@@ -727,7 +734,7 @@ room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
 })
 
 // Handle players leaving
-room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerLeft, ({ data: player }) => {
   const mesh = players.get(player.id)
   if (mesh) {
     scene.remove(mesh)
@@ -737,7 +744,7 @@ room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
 
 // Update local player position and rotation
 function onPlayerMove(position: Vector3, rotation: Vector3) {
-  room.mutatePlayer((draft) => {
+  room.mutateLocalPlayer((draft) => {
     // Use world coordinates directly - conversion happens automatically
     draft.position = position
     draft.rotation = rotation
@@ -775,13 +782,13 @@ const room = createRoom('my-game', {
 
 ```typescript
 // With coordinateConverter: createCoordinateConverter(10)
-room.mutatePlayer((draft) => {
+room.mutateLocalPlayer((draft) => {
   draft.position = { x: 5, y: 0, z: -8 } // World coordinates
   // Automatically converted to { x: 0.5, y: 0, z: -0.8 } for server
 })
 
 // When receiving player updates:
-room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+room.on(RoomEventType.RemotePlayerUpdated, ({ data: player }) => {
   console.log(player.position) // Already converted back to world coordinates
   // Server sent { x: 0.3, y: 0, z: -0.6 }
   // You receive { x: 3, y: 0, z: -6 }
