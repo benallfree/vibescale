@@ -57,7 +57,6 @@ export function createRoom<TPlayer extends PlayerBase>(
   const emitter = new EventEmitter<RoomEvents<TPlayer>>()
   let playerId: PlayerId | null = null
   const players = new Map<PlayerId, TPlayer>()
-  const playerDeltaBases = new Map<PlayerId, TPlayer>()
   const stateChangeDetector = options.stateChangeDetectorFn || createStateChangeDetector()
   const normalizePlayerState = options.normalizePlayerState || normalizePlayerBase
 
@@ -75,6 +74,7 @@ export function createRoom<TPlayer extends PlayerBase>(
   const maxReconnectDelay = 30000 // Cap at 30 seconds
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   let isManualDisconnect = false
+  let lastBroadcastPlayerState: TPlayer | null = null
 
   const room: Room<TPlayer> = {
     on: emitter.on.bind(emitter),
@@ -99,36 +99,30 @@ export function createRoom<TPlayer extends PlayerBase>(
       // Update in players map
       const currentPlayer = players.get(playerId)
       if (!currentPlayer) return null
-      if (!playerDeltaBases.has(playerId)) {
-        playerDeltaBases.set(playerId, currentPlayer)
-      }
-      const baseState = playerDeltaBases.get(playerId)!
 
       // console.log('mutatePlayer in', JSON.stringify({ baseState }))
       const newState = produce(currentPlayer, mutator)
       players.set(playerId, newState)
       // console.log('mutatePlayer out', JSON.stringify({ newState }))
 
-      if (!stateChangeDetector(baseState, newState)) {
-        return newState
-      }
-      playerDeltaBases.set(playerId, newState)
+      if (!lastBroadcastPlayerState || stateChangeDetector(lastBroadcastPlayerState, newState)) {
+        lastBroadcastPlayerState = newState
+        // Convert world coordinates to server normalized coordinates before sending
+        const serverState = produce(newState, (draft) => {
+          draft.position = coordinateConverter.worldToServer(draft.position)
+        })
 
-      // Convert world coordinates to server normalized coordinates before sending
-      const serverState = produce(newState, (draft) => {
-        draft.position = coordinateConverter.worldToServer(draft.position)
-      })
-
-      // Send to server
-      const message: WebSocketMessage = {
-        type: MessageType.PlayerState,
-        ...serverState,
-      }
-      const jsonMessage = JSON.stringify(message)
-      emitter.emit(RoomEventType.Tx, jsonMessage)
-      if (ws?.readyState === WebSocket.OPEN) {
-        console.log('tx', jsonMessage)
-        ws.send(jsonMessage)
+        // Send to server
+        const message: WebSocketMessage = {
+          type: MessageType.PlayerState,
+          ...serverState,
+        }
+        const jsonMessage = JSON.stringify(message)
+        emitter.emit(RoomEventType.Tx, jsonMessage)
+        if (ws?.readyState === WebSocket.OPEN) {
+          console.log('tx', jsonMessage)
+          ws.send(jsonMessage)
+        }
       }
       emitter.emit(RoomEventType.LocalPlayerMutated, newState)
       emitter.emit(RoomEventType.AfterLocalPlayerMutated, newState)
