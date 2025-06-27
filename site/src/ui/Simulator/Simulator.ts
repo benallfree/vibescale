@@ -105,65 +105,74 @@ export const DebugPanel = () => {
     })
 
     // Player events
-    room.on(RoomEventType.PlayerJoined, (event: EmitterEvent<RoomEventPayloads, RoomEventType.PlayerJoined>) => {
-      console.log('PlayerJoined', event)
-      const player = event.data
-      if (player.isLocal) {
-        debugState.localPlayer = player
-        const rawPlayer = raw(player)
-        const playerData = {
-          ...rawPlayer,
-          isLocal: rawPlayer.isLocal,
+    room.on(
+      RoomEventType.RemotePlayerJoined,
+      (event: EmitterEvent<RoomEventPayloads, RoomEventType.RemotePlayerJoined>) => {
+        console.log('PlayerJoined', event)
+        const player = event.data
+        if (player.isLocal) {
+          debugState.localPlayer = player
+          const rawPlayer = raw(player)
+          const playerData = {
+            ...rawPlayer,
+            isLocal: rawPlayer.isLocal,
+          }
+          debugState.editorValue = JSON.stringify(playerData, null, 2)
         }
-        debugState.editorValue = JSON.stringify(playerData, null, 2)
+        debugState.players[player.id] = player
       }
-      debugState.players[player.id] = player
-    })
+    )
 
-    room.on(RoomEventType.PlayerLeft, (event: EmitterEvent<RoomEventPayloads, RoomEventType.PlayerLeft>) => {
-      const player = event.data
-      if (debugState.localPlayer?.id === player.id) {
-        debugState.localPlayer = null
-        // Stop wandering animation if local player left
-        if (debugState.wanderAnimationId !== null) {
-          cancelAnimationFrame(debugState.wanderAnimationId)
-          debugState.wanderAnimationId = null
-          debugState.isWandering = false
+    room.on(
+      RoomEventType.RemotePlayerLeft,
+      (event: EmitterEvent<RoomEventPayloads, RoomEventType.RemotePlayerLeft>) => {
+        const player = event.data
+        if (debugState.localPlayer?.id === player.id) {
+          debugState.localPlayer = null
+          // Stop wandering animation if local player left
+          if (debugState.wanderAnimationId !== null) {
+            cancelAnimationFrame(debugState.wanderAnimationId)
+            debugState.wanderAnimationId = null
+            debugState.isWandering = false
+          }
         }
+        if (debugState.selectedPlayerId === player.id) {
+          debugState.selectedPlayerId = null
+        }
+        delete debugState.players[player.id]
       }
-      if (debugState.selectedPlayerId === player.id) {
-        debugState.selectedPlayerId = null
-      }
-      delete debugState.players[player.id]
-    })
+    )
 
-    room.on(RoomEventType.PlayerUpdated, (event: EmitterEvent<RoomEventPayloads, RoomEventType.PlayerUpdated>) => {
-      const player = event.data
-      if (player.isLocal) {
-        debugState.localPlayer = player
-        const rawPlayer = raw(player)
-        const playerData = {
-          ...rawPlayer,
-          isLocal: rawPlayer.isLocal,
+    room.on(
+      RoomEventType.RemotePlayerUpdated,
+      (event: EmitterEvent<RoomEventPayloads, RoomEventType.RemotePlayerUpdated>) => {
+        const player = event.data
+        if (player.isLocal) {
+          debugState.localPlayer = player
+          const rawPlayer = raw(player)
+          const playerData = {
+            ...rawPlayer,
+            isLocal: rawPlayer.isLocal,
+          }
+          debugState.editorValue = JSON.stringify(playerData, null, 2)
         }
-        debugState.editorValue = JSON.stringify(playerData, null, 2)
-      }
-      debugState.players[player.id] = player
+        debugState.players[player.id] = player
 
-      // If this is the currently selected player, update their data in the editor
-      if (debugState.selectedPlayerId === player.id) {
-        const selectedPlayer = debugState.players[player.id]
-        const rawPlayer = raw(selectedPlayer)
-        const updatedData = {
-          ...rawPlayer,
-          isLocal: rawPlayer.isLocal,
-        }
-        if (!selectedPlayer.isLocal) {
-          // Only update non-local player data directly
-          debugState.editorValue = JSON.stringify(updatedData, null, 2)
+        // If this is the currently selected player, update their data in the editor
+        if (debugState.selectedPlayerId === player.id) {
+          const selectedPlayer = debugState.players[player.id]
+          const rawPlayer = raw(selectedPlayer)
+          const updatedData = {
+            ...rawPlayer,
+            isLocal: rawPlayer.isLocal,
+          }
+          if (!selectedPlayer.isLocal) {
+            // Only update non-local player data directly
+            debugState.editorValue = JSON.stringify(updatedData, null, 2)
+          }
         }
       }
-    })
+    )
 
     // Error events
     room.on(RoomEventType.Error, (event: EmitterEvent<RoomEventPayloads>) => {
@@ -201,7 +210,7 @@ export const DebugPanel = () => {
       const rotation = Math.atan2(Math.cos(time * speed) * Math.sin(time * speed), Math.cos(time * speed * 2))
 
       // Update server
-      debugState.room?.mutatePlayer((oldState) => {
+      debugState.room?.mutateLocalPlayer((oldState) => {
         return {
           ...oldState,
           position: { x, y: centerPosition.y, z },
@@ -601,7 +610,7 @@ export const DebugPanel = () => {
 
                         // Send updates if there are changes
                         if (value) {
-                          debugState.room?.mutatePlayer((oldState) => {
+                          debugState.room?.mutateLocalPlayer((oldState) => {
                             return {
                               ...oldState,
                               position: value.position,
