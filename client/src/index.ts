@@ -129,6 +129,7 @@ export function createRoom<TPlayer extends PlayerBase>(
         console.log('tx', jsonMessage)
         ws.send(jsonMessage)
       }
+      emitter.emit(RoomEventType.LocalPlayerMutated, newState)
       emitter.emit(RoomEventType.PlayerMutated, newState)
       return newState
     },
@@ -231,14 +232,14 @@ export function createRoom<TPlayer extends PlayerBase>(
         }
         if (player.isConnected) {
           if (!players.has(player.id)) {
-            emitter.emit(RoomEventType.PlayerJoined, player)
+            emitter.emit(RoomEventType.RemotePlayerJoined, player)
           } else {
-            emitter.emit(RoomEventType.PlayerUpdated, player)
+            emitter.emit(RoomEventType.RemotePlayerUpdated, player)
           }
           players.set(player.id, player)
         } else {
           players.delete(player.id)
-          emitter.emit(RoomEventType.PlayerLeft, player)
+          emitter.emit(RoomEventType.RemotePlayerLeft, player)
         }
         break
 

@@ -23,12 +23,13 @@ export enum RoomEventType {
   Disconnected = 'disconnected',
   Error = 'error',
 
-  // Player events
-  PlayerJoined = 'player:joined',
-  PlayerLeft = 'player:left',
-  PlayerUpdated = 'player:updated',
-  PlayerError = 'player:error',
-  PlayerMutated = 'player:mutated',
+  // Remote player events
+  RemotePlayerJoined = 'remote:player:joined',
+  RemotePlayerLeft = 'remote:player:left',
+  RemotePlayerUpdated = 'remote:player:updated',
+
+  // Local player events
+  LocalPlayerMutated = 'local:player:mutated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',
@@ -53,10 +54,10 @@ export interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
   [RoomEventType.Disconnected]: undefined
   [RoomEventType.Error]: { message: string; error: any; details?: any }
 
-  [RoomEventType.PlayerJoined]: TPlayer
-  [RoomEventType.PlayerLeft]: TPlayer
-  [RoomEventType.PlayerUpdated]: TPlayer
-  [RoomEventType.PlayerMutated]: TPlayer
+  [RoomEventType.RemotePlayerJoined]: TPlayer
+  [RoomEventType.RemotePlayerLeft]: TPlayer
+  [RoomEventType.RemotePlayerUpdated]: TPlayer
+  [RoomEventType.LocalPlayerMutated]: TPlayer
   [RoomEventType.PlayerError]: { type: string; error: string; details?: any }
 
   [RoomEventType.WebSocketInfo]: Record<string, any>
