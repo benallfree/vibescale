@@ -1,6 +1,6 @@
 import { createCoordinateConverter } from './coordinateConversion'
 import { EventEmitter } from './EventEmitter'
-import { defaultNormalizePlayerState } from './normalizer'
+import { normalizePlayerBase } from './normalizer'
 import { createStateChangeDetector } from './stateChangeDetector'
 import {
   MessageType,
@@ -15,6 +15,7 @@ import {
 
 export * from './coordinateConversion'
 export * from './EventEmitter'
+export * from './normalizer'
 export * from './stateChangeDetector'
 export * from './types'
 
@@ -58,7 +59,7 @@ export function createRoom<TPlayer extends PlayerBase>(
   const players = new Map<PlayerId, TPlayer>()
   const playerDeltaBases = new Map<PlayerId, TPlayer>()
   const stateChangeDetector = options.stateChangeDetectorFn || createStateChangeDetector()
-  const normalizePlayerState = options.normalizePlayerState || defaultNormalizePlayerState
+  const normalizePlayerState = options.normalizePlayerState || normalizePlayerBase
 
   // Use custom produce function if provided, otherwise use default
   const produce = options.produce || defaultProduce<TPlayer>

@@ -1,23 +1,7 @@
 import type { PartialDeep } from 'type-fest'
 import type { PlayerBase } from './types'
 
-export type PlayerStateNormalizerFactoryOptions = {
-  customNormalizer?: <TPlayer extends PlayerBase>(state: PartialDeep<PlayerBase>) => PartialDeep<TPlayer>
-}
-
-export const createPlayerStateNormalizer = <TPlayer extends PlayerBase>(
-  options: PlayerStateNormalizerFactoryOptions
-) => {
-  return (state: PartialDeep<TPlayer>) => {
-    const normalized = defaultNormalizePlayerState(state)
-    if (options.customNormalizer) {
-      return options.customNormalizer(normalized)
-    }
-    return normalized
-  }
-}
-
-export const defaultNormalizePlayerState = <TPlayer extends PlayerBase>(state: PartialDeep<TPlayer>) => {
+export const normalizePlayerBase = (state: PartialDeep<PlayerBase>) => {
   return {
     ...state,
     position: {
@@ -35,5 +19,5 @@ export const defaultNormalizePlayerState = <TPlayer extends PlayerBase>(state: P
     isLocal: state.isLocal || false,
     isConnected: state.isConnected || false,
     id: state.id || '',
-  } as TPlayer
+  } as PlayerBase
 }
