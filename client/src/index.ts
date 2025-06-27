@@ -130,7 +130,7 @@ export function createRoom<TPlayer extends PlayerBase>(
         ws.send(jsonMessage)
       }
       emitter.emit(RoomEventType.LocalPlayerMutated, newState)
-      emitter.emit(RoomEventType.PlayerMutated, newState)
+      emitter.emit(RoomEventType.AfterLocalPlayerMutated, newState)
       return newState
     },
 

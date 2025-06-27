@@ -30,6 +30,7 @@ export enum RoomEventType {
 
   // Local player events
   LocalPlayerMutated = 'local:player:mutated',
+  AfterLocalPlayerMutated = 'local:player:after:mutated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',
@@ -58,7 +59,7 @@ export interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
   [RoomEventType.RemotePlayerLeft]: TPlayer
   [RoomEventType.RemotePlayerUpdated]: TPlayer
   [RoomEventType.LocalPlayerMutated]: TPlayer
-  [RoomEventType.PlayerError]: { type: string; error: string; details?: any }
+  [RoomEventType.AfterLocalPlayerMutated]: TPlayer
 
   [RoomEventType.WebSocketInfo]: Record<string, any>
   [RoomEventType.Rx]: string
