@@ -1,5 +1,31 @@
 # vibescale
 
+## 3.0.0
+
+### Major Changes
+
+- 251395c: Dropped immer and added custom produce function option
+- c136b98: Rename room events
+- 6c7dc88: Add coordinate converter to room options
+- 251395c: Updated to use world<->server position coordinate system
+- 41ba818: remove getEndpointUrl from client
+
+### Minor Changes
+
+- 5c1d89a: Add getAllPlayers()
+- 358c9b4: Add option to normalize player state
+- 69cb6ac: Add state change detector
+- e4b3e4a: Export normalizers
+- 60d6469: Add AfterLocalPlayerMutated event
+- 26c1513: Add default player state normalizer
+- 4e18435: Add Player:Mutated event
+
+### Patch Changes
+
+- ac87e6d: MutatePlayer returns player info if available
+- 0309406: Add Typescript export
+- 877bb76: Rename mutatePlayer
+
 ## 2.0.1
 
 ### Patch Changes

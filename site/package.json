@@ -1,6 +1,6 @@
 {
   "name": "vibescale-server",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "An MMO server for building multiplayer web games using Three.js, featuring real-time WebSocket networking, Cloudflare edge deployment, and Durable Objects for game state management",

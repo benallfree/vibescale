@@ -1,5 +1,12 @@
 # goodvibes
 
+## 1.1.0
+
+### Minor Changes
+
+- 251395c: Standardize player position scale to -1:1
+- f086b36: Add server version handshake message
+
 ## 1.0.1
 
 ### Patch Changes
