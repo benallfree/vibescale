@@ -87,7 +87,7 @@ export type Room<TPlayer extends PlayerBase = PlayerBase> = {
   getPlayer: (id: PlayerId) => TPlayer | null
   getLocalPlayer: () => TPlayer | null
   getAllPlayers: () => TPlayer[]
-  mutatePlayer: (mutator: PlayerMutator<TPlayer>) => TPlayer | null
+  mutateLocalPlayer: (mutator: PlayerMutator<TPlayer>) => TPlayer | null
   getRoomId: () => string
   disconnect: () => void
   isConnected: () => boolean

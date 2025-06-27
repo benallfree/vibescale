@@ -1,0 +1,5 @@
+---
+'vibescale': patch
+---
+
+Rename mutatePlayer

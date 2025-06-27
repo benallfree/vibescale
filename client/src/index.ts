@@ -92,7 +92,7 @@ export function createRoom<TPlayer extends PlayerBase>(
       return Array.from(players.values())
     },
 
-    mutatePlayer: (mutator) => {
+    mutateLocalPlayer: (mutator) => {
       if (!playerId) return null
 
       // Update in players map
