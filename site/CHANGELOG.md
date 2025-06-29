@@ -1,5 +1,12 @@
 # goodvibes
 
+## 1.1.1
+
+### Patch Changes
+
+- Use raw demo HTML source
+- Add 2D demo
+
 ## 1.1.0
 
 ### Minor Changes
