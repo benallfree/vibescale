@@ -1,23 +1,9 @@
-<!--
-* review @llm.md carefully
-* we are using vibescale for this project
-* make @demo.html into a pure html/js/esm minimal page which is a threejs scene with a cube.
-* wasd moves the cube around and changes its rotation as it moves, updating the server each time.
-* display a grid for easy visibility
-* position and rotation are updated as the player moves
-* when remote players join, they are assigned a color from the server
-* add a RoomEventType.Any listener that console.logs events
-* use ?r=<room_name> defaulting to 'demo-room'
-* use ?e=<endpoint> defaulting to 'https://vibescale.benallfree.com'
-* use delta-based movement
-* make the camera follow around the local player cube. i want to be able to steer around and change my rotation with A and D and have the camera follow me
--->
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vibescale Demo</title>
+    <title>Vibescale 3D Demo</title>
     <style>
       body {
         margin: 0;
@@ -40,12 +26,12 @@
     <div id="info">WASD to move</div>
     <script type="module">
       import * as THREE from 'https://unpkg.com/three@0.162.0/build/three.module.js'
-      import { createRoom, RoomEventType } from '/../client/src/index.ts'
+      import { createRoom, RoomEventType } from 'https://unpkg.com/vibescale'
       // Get room name and endpoint from URL query parameters or use defaults
       const thisUrl = new URL(window.location.href)
       thisUrl.pathname = ''
       const params = new URLSearchParams(window.location.search)
-      const roomName = params.get('r') || 'demo-room'
+      const roomName = params.get('r') || 'demo-room-3d'
       const endpoint = params.get('e') || `https://vibescale.benallfree.com`
 
       // Create and connect to room
@@ -97,7 +83,7 @@
       })
 
       // Handle player join
-      room.on(RoomEventType.PlayerJoined, ({ data: player }) => {
+      room.on(RoomEventType.RemotePlayerJoined, ({ data: player }) => {
         const mesh = createPlayerMesh(player)
         
         players.set(player.id, { player, mesh })
@@ -110,7 +96,7 @@
       })
 
       // Handle player updates
-      room.on(RoomEventType.PlayerUpdated, ({ data: player }) => {
+      room.on(RoomEventType.RemotePlayerUpdated, ({ data: player }) => {
         const playerData = players.get(player.id)
         if (playerData) {
           const { mesh } = playerData
@@ -121,7 +107,7 @@
       })
 
       // Handle player leave
-      room.on(RoomEventType.PlayerLeft, ({ data: player }) => {
+      room.on(RoomEventType.RemotePlayerLeft, ({ data: player }) => {
         const playerData = players.get(player.id)
         if (playerData) {
           scene.remove(playerData.mesh)
@@ -197,7 +183,7 @@
         camera.lookAt(mesh.position)
 
         if (moved) {
-          room.mutatePlayer((draft) => {
+          room.mutateLocalPlayer((draft) => {
             // Client library automatically converts world coordinates to server coordinates
             draft.position = {
               x: mesh.position.x,

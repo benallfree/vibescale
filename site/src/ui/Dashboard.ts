@@ -1,6 +1,7 @@
 import van from 'vanjs-core'
 import ragHelper from '../../../client/llm.md?raw'
-import demoHtml from '../../demo.html?raw'
+import demo2dHtml from '../../public/demo-2d.html?raw'
+import demo3dHtml from '../../public/demo-3d.html?raw'
 import { appState } from '../state'
 import { renderMarkdown } from '../utils/prism'
 import { DebugPanel } from './Simulator/Simulator'
@@ -14,6 +15,16 @@ interface DashboardProps {
     networkTypes: string
     stateChangeDetector: string
   }
+}
+
+const demoEndpointUrl = (type: string) => {
+  const endpoint = new URL(window.location.href)
+  endpoint.pathname = ''
+  const thisUrl = new URL(window.location.href)
+  thisUrl.pathname = `/demo-${type}`
+  thisUrl.searchParams.set('r', appState.roomName + `-${type}`)
+  thisUrl.searchParams.set('e', endpoint.toString())
+  return thisUrl.toString()
 }
 
 const generateUrls = (roomName: string) => ({
@@ -46,20 +57,22 @@ const DashboardContent = ({ templates }: DashboardProps) => {
             { class: 'space-y-4' },
             div(
               { class: 'font-semibold text-lg' },
-              'Demo App',
+              'Demo App (2D)',
               ' ',
               a(
                 {
                   class: 'btn btn-primary ml-4 btn-sm',
                   target: '_blank',
+                  href: demoEndpointUrl('2d'),
+                },
+                '🚀 Launch'
+              ),
+              a(
+                {
+                  class: 'btn btn-primary ml-4 btn-sm',
+                  target: '_blank',
                   href: () => {
-                    const endpoint = new URL(window.location.href)
-                    endpoint.pathname = ''
-                    const thisUrl = new URL(window.location.href)
-                    thisUrl.pathname = '/demo'
-                    thisUrl.searchParams.set('r', appState.roomName)
-                    thisUrl.searchParams.set('e', endpoint.toString())
-                    const demoUrl = thisUrl.toString()
+                    const demoUrl = demoEndpointUrl('2d')
                     const vibecheckUrl = new URL('https://vibecheck.benallfree.com')
                     vibecheckUrl.searchParams.set('url', demoUrl)
                     return vibecheckUrl.toString()
@@ -73,7 +86,45 @@ const DashboardContent = ({ templates }: DashboardProps) => {
               (() => {
                 const el = document.createElement('div')
                 el.className = 'prose prose-invert max-w-none'
-                el.innerHTML = renderMarkdown('```html\n' + demoHtml + '```')
+                el.innerHTML = renderMarkdown('```html\n' + demo2dHtml + '```')
+                return el
+              })()
+            )
+          ),
+          div(
+            { class: 'space-y-4' },
+            div(
+              { class: 'font-semibold text-lg' },
+              'Demo App (3D)',
+              ' ',
+              a(
+                {
+                  class: 'btn btn-primary ml-4 btn-sm',
+                  target: '_blank',
+                  href: demoEndpointUrl('3d'),
+                },
+                '🚀 Launch'
+              ),
+              a(
+                {
+                  class: 'btn btn-primary ml-4 btn-sm',
+                  target: '_blank',
+                  href: () => {
+                    const demoUrl = demoEndpointUrl('3d')
+                    const vibecheckUrl = new URL('https://vibecheck.benallfree.com')
+                    vibecheckUrl.searchParams.set('url', demoUrl)
+                    return vibecheckUrl.toString()
+                  },
+                },
+                '🚀 Launch on Vibecheck'
+              )
+            ),
+            div(
+              { class: 'bg-base-300 rounded-lg p-6 overflow-auto max-h-[400px] border border-black' },
+              (() => {
+                const el = document.createElement('div')
+                el.className = 'prose prose-invert max-w-none'
+                el.innerHTML = renderMarkdown('```html\n' + demo3dHtml + '```')
                 return el
               })()
             )

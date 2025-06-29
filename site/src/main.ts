@@ -29,12 +29,7 @@ const router = initRouter({
 // Create app container with conditional navbar
 const appContainer = div(
   { id: 'app' },
-  div(
-    {
-      class: () => (appState.currentView === 'home' ? '' : 'mt-16'),
-    },
-    [() => (appState.currentView !== 'home' ? Navbar() : ''), div({ id: 'content' })]
-  )
+  div({}, [() => (appState.currentView !== 'home' ? Navbar() : ''), div({ id: 'content' })])
 )
 document.body.appendChild(appContainer)
 

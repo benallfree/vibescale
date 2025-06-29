@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vibescale 2D Demo</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        background: #1a1a1a;
+      }
+      #info {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-family: monospace;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        z-index: 100;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">W/S to move forward/back, A/D to rotate</div>
+    <canvas id="canvas"></canvas>
+    <script type="module">
+      import { createRoom, RoomEventType } from 'https://unpkg.com/vibescale'
+      
+      // Get room name and endpoint from URL query parameters or use defaults
+      const params = new URLSearchParams(window.location.search)
+      const roomName = params.get('r') || 'demo-room-2d'
+      const endpoint = params.get('e') || `https://vibescale.benallfree.com`
+
+      // Canvas setup
+      const canvas = document.getElementById('canvas')
+      const ctx = canvas.getContext('2d')
+      
+      function resizeCanvas() {
+        canvas.width = window.innerWidth
+        canvas.height = window.innerHeight
+      }
+      resizeCanvas()
+
+      // Create and connect to room
+      const room = createRoom(roomName, {
+        endpoint,
+        worldScale: 10, // Maps server's -1:1 to canvas -10:10
+      })
+
+      // Camera system
+      const camera = {
+        x: 0,
+        y: 0,
+        zoom: 30, // pixels per world unit
+      }
+
+      // Player management
+      const players = new Map()
+      const PLAYER_SIZE = 1 // World units
+
+      // Movement controls
+      const keys = { w: false, a: false, s: false, d: false }
+      const moveSpeed = 5.0 // Units per second
+      const rotateSpeed = 2.0 // Radians per second
+      let lastTime = performance.now()
+
+      // Utility functions
+      function worldToScreen(worldX, worldY) {
+        return {
+          x: (worldX - camera.x) * camera.zoom + canvas.width / 2,
+          y: (worldY - camera.y) * camera.zoom + canvas.height / 2
+        }
+      }
+
+      function drawGrid() {
+        ctx.strokeStyle = '#333'
+        ctx.lineWidth = 1
+        
+        const gridSize = 1 // World units
+        const startX = Math.floor((camera.x - canvas.width / (2 * camera.zoom)) / gridSize) * gridSize
+        const endX = Math.ceil((camera.x + canvas.width / (2 * camera.zoom)) / gridSize) * gridSize
+        const startY = Math.floor((camera.y - canvas.height / (2 * camera.zoom)) / gridSize) * gridSize
+        const endY = Math.ceil((camera.y + canvas.height / (2 * camera.zoom)) / gridSize) * gridSize
+        
+        // Vertical lines
+        for (let x = startX; x <= endX; x += gridSize) {
+          const screen = worldToScreen(x, startY)
+          const screenEnd = worldToScreen(x, endY)
+          ctx.beginPath()
+          ctx.moveTo(screen.x, screen.y)
+          ctx.lineTo(screen.x, screenEnd.y)
+          ctx.stroke()
+        }
+        
+        // Horizontal lines
+        for (let y = startY; y <= endY; y += gridSize) {
+          const screen = worldToScreen(startX, y)
+          const screenEnd = worldToScreen(endX, y)
+          ctx.beginPath()
+          ctx.moveTo(screen.x, screen.y)
+          ctx.lineTo(screenEnd.x, screen.y)
+          ctx.stroke()
+        }
+      }
+
+      function drawPlayer(player) {
+        const screen = worldToScreen(player.position.x, player.position.y)
+        const size = PLAYER_SIZE * camera.zoom
+        
+        ctx.save()
+        ctx.translate(screen.x, screen.y)
+        ctx.rotate(player.rotation.y) // Use Y rotation for 2D rotation
+        
+        // Draw square
+        ctx.fillStyle = player.color
+        ctx.fillRect(-size/2, -size/2, size, size)
+        
+        // Draw direction indicator (small line pointing forward)
+        ctx.strokeStyle = 'white'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(0, -size/2)
+        ctx.stroke()
+        
+        ctx.restore()
+      }
+
+      // Set up controls immediately
+      setupControls()
+
+      // Create and connect to room
+      room.connect()
+
+      // Handle all events
+      room.on(RoomEventType.Any, ({ data }) => {
+        console.log('Event:', data)
+      })
+
+      // Handle player join
+      room.on(RoomEventType.RemotePlayerJoined, ({ data: player }) => {
+        console.log('Player joined:', player)
+        players.set(player.id, player)
+      })
+
+      // Handle player updates
+      room.on(RoomEventType.RemotePlayerUpdated, ({ data: player }) => {
+        players.set(player.id, player)
+      })
+
+      // Handle player leave
+      room.on(RoomEventType.RemotePlayerLeft, ({ data: player }) => {
+        players.delete(player.id)
+      })
+
+      function setupControls() {
+        document.addEventListener('keydown', (e) => {
+          const key = e.key.toLowerCase()
+          if (keys.hasOwnProperty(key)) {
+            keys[key] = true
+            console.log('Key down:', key)
+          }
+        })
+
+        document.addEventListener('keyup', (e) => {
+          const key = e.key.toLowerCase()
+          if (keys.hasOwnProperty(key)) {
+            keys[key] = false
+            console.log('Key up:', key)
+          }
+        })
+      }
+
+      function updateLocalPlayer() {
+        const localPlayer = room.getLocalPlayer()
+        if (!localPlayer) return
+
+        const currentTime = performance.now()
+        const deltaTime = (currentTime - lastTime) / 1000 // Convert to seconds
+        lastTime = currentTime
+
+        let moved = false
+        const playerData = players.get(localPlayer.id)
+        if (!playerData) return
+
+        let newX = playerData.position.x
+        let newY = playerData.position.y
+        let newRotation = playerData.rotation.y
+
+        // Handle rotation with A/D
+        if (keys.a) {
+          newRotation -= rotateSpeed * deltaTime  // A = turn left (counterclockwise)
+          moved = true
+        }
+        if (keys.d) {
+          newRotation += rotateSpeed * deltaTime  // D = turn right (clockwise)
+          moved = true
+        }
+
+        // Calculate forward movement based on current rotation
+        if (keys.w) {
+          newX += Math.sin(newRotation) * moveSpeed * deltaTime
+          newY -= Math.cos(newRotation) * moveSpeed * deltaTime
+          moved = true
+        }
+        if (keys.s) {
+          newX -= Math.sin(newRotation) * moveSpeed * deltaTime
+          newY += Math.cos(newRotation) * moveSpeed * deltaTime
+          moved = true
+        }
+
+        // Update camera position to follow player
+        camera.x = newX
+        camera.y = newY
+
+        if (moved) {
+          console.log('Moving player to:', { x: newX, y: newY, rotation: newRotation })
+          
+          // Update local player data immediately for smooth rendering
+          players.set(localPlayer.id, {
+            ...playerData,
+            position: { x: newX, y: newY, z: 0 },
+            rotation: { x: 0, y: newRotation, z: 0 }
+          })
+
+          room.mutateLocalPlayer((draft) => {
+            // Only use X and Y, Z is unused
+            draft.position = {
+              x: newX,
+              y: newY,
+              z: 0, // Always 0 for 2D
+            }
+            draft.rotation = {
+              x: 0, // Always 0 for 2D
+              y: newRotation,
+              z: 0, // Always 0 for 2D
+            }
+          })
+        }
+      }
+
+      function render() {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        
+        // Draw grid
+        drawGrid()
+        
+        // Draw all players
+        const playerCount = players.size
+        for (const player of players.values()) {
+          drawPlayer(player)
+        }
+        
+        // Debug info
+        if (playerCount > 0) {
+          ctx.fillStyle = 'white'
+          ctx.font = '12px monospace'
+          ctx.fillText(`Players: ${playerCount}, Camera: (${camera.x.toFixed(1)}, ${camera.y.toFixed(1)})`, 10, canvas.height - 20)
+        }
+      }
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate)
+        updateLocalPlayer()
+        render()
+      }
+      animate()
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        resizeCanvas()
+      })
+    </script>
+  </body>
+</html>
