@@ -1,5 +1,11 @@
 # goodvibes
 
+## 1.1.2
+
+### Patch Changes
+
+- a7402c2: Add touch controls to demos
+
 ## 1.1.1
 
 ### Patch Changes
