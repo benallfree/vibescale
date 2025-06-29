@@ -2,12 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Vibescale 2D Demo</title>
     <style>
       body {
         margin: 0;
         overflow: hidden;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
       }
       canvas {
         display: block;
@@ -26,7 +31,7 @@
     </style>
   </head>
   <body>
-    <div id="info">W/S to move forward/back, A/D to rotate</div>
+    <div id="info">W/S to move forward/back, A/D to rotate<br>Hold and drag to control direction</div>
     <canvas id="canvas"></canvas>
     <script type="module">
       import { createRoom, RoomEventType } from 'https://unpkg.com/vibescale'
@@ -68,12 +73,22 @@
       const moveSpeed = 5.0 // Units per second
       const rotateSpeed = 2.0 // Radians per second
       let lastTime = performance.now()
+      
+      // Touch controls
+      let touchTarget = null // { x, y, rotation } - world coordinates
 
       // Utility functions
       function worldToScreen(worldX, worldY) {
         return {
           x: (worldX - camera.x) * camera.zoom + canvas.width / 2,
           y: (worldY - camera.y) * camera.zoom + canvas.height / 2
+        }
+      }
+
+      function screenToWorld(screenX, screenY) {
+        return {
+          x: (screenX - canvas.width / 2) / camera.zoom + camera.x,
+          y: (screenY - canvas.height / 2) / camera.zoom + camera.y
         }
       }
 
@@ -159,6 +174,7 @@
       })
 
       function setupControls() {
+        // Keyboard controls
         document.addEventListener('keydown', (e) => {
           const key = e.key.toLowerCase()
           if (keys.hasOwnProperty(key)) {
@@ -174,6 +190,72 @@
             console.log('Key up:', key)
           }
         })
+
+        // Touch controls
+        let isMouseDown = false
+        let isTouching = false
+
+        function updateTouchTarget(e) {
+          e.preventDefault()
+          const rect = canvas.getBoundingClientRect()
+          const touch = e.touches ? e.touches[0] : e
+          const screenX = touch.clientX - rect.left
+          const screenY = touch.clientY - rect.top
+          
+          const worldPos = screenToWorld(screenX, screenY)
+          const localPlayer = room.getLocalPlayer()
+          if (!localPlayer) return
+
+          const playerData = players.get(localPlayer.id)
+          if (!playerData) return
+
+          // Calculate direction to touch point
+          const dx = worldPos.x - playerData.position.x
+          const dy = worldPos.y - playerData.position.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          
+          // Always update target rotation, even for close points
+          const targetRotation = Math.atan2(dx, -dy) // Note: -dy because screen Y is flipped
+          touchTarget = {
+            x: worldPos.x,
+            y: worldPos.y,
+            rotation: targetRotation,
+            distance: distance
+          }
+        }
+
+        function startTouch(e) {
+          updateTouchTarget(e)
+          if (e.type === 'mousedown') {
+            isMouseDown = true
+          } else {
+            isTouching = true
+          }
+        }
+
+        function moveTouch(e) {
+          if ((e.type === 'mousemove' && isMouseDown) || (e.type === 'touchmove' && isTouching)) {
+            updateTouchTarget(e)
+          }
+        }
+
+        function endTouch(e) {
+          touchTarget = null
+          isMouseDown = false
+          isTouching = false
+        }
+
+        // Mouse events for desktop
+        canvas.addEventListener('mousedown', startTouch)
+        canvas.addEventListener('mousemove', moveTouch)
+        canvas.addEventListener('mouseup', endTouch)
+        canvas.addEventListener('mouseleave', endTouch) // Also clear when mouse leaves canvas
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', startTouch)
+        canvas.addEventListener('touchmove', moveTouch)
+        canvas.addEventListener('touchend', endTouch)
+        canvas.addEventListener('touchcancel', endTouch)
       }
 
       function updateLocalPlayer() {
@@ -192,13 +274,51 @@
         let newY = playerData.position.y
         let newRotation = playerData.rotation.y
 
-        // Handle rotation with A/D
+        // Handle touch/mouse movement
+        if (touchTarget) {
+          const distanceToTarget = touchTarget.distance
+          
+          // Only move if far enough away to avoid jittering
+          if (distanceToTarget > 0.3) {
+            // Rotate towards target
+            const angleDiff = touchTarget.rotation - newRotation
+            const normalizedAngleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff))
+            
+            if (Math.abs(normalizedAngleDiff) > 0.05) {
+              const rotationStep = Math.sign(normalizedAngleDiff) * rotateSpeed * deltaTime
+              if (Math.abs(rotationStep) > Math.abs(normalizedAngleDiff)) {
+                newRotation = touchTarget.rotation
+              } else {
+                newRotation += rotationStep
+              }
+              moved = true
+            }
+            
+            // Move directly towards target (not just forward)
+            const dx = touchTarget.x - newX
+            const dy = touchTarget.y - newY
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            
+            if (distance > 0) {
+              // Normalize direction and apply speed
+              const moveDistance = moveSpeed * deltaTime
+              const stepDistance = Math.min(moveDistance, distance)
+              newX += (dx / distance) * stepDistance
+              newY += (dy / distance) * stepDistance
+              moved = true
+            }
+          }
+        }
+
+        // Handle keyboard controls (can override touch controls)
         if (keys.a) {
           newRotation -= rotateSpeed * deltaTime  // A = turn left (counterclockwise)
+          touchTarget = null // Clear touch target when using keyboard
           moved = true
         }
         if (keys.d) {
           newRotation += rotateSpeed * deltaTime  // D = turn right (clockwise)
+          touchTarget = null // Clear touch target when using keyboard
           moved = true
         }
 
@@ -206,11 +326,13 @@
         if (keys.w) {
           newX += Math.sin(newRotation) * moveSpeed * deltaTime
           newY -= Math.cos(newRotation) * moveSpeed * deltaTime
+          touchTarget = null // Clear touch target when using keyboard
           moved = true
         }
         if (keys.s) {
           newX -= Math.sin(newRotation) * moveSpeed * deltaTime
           newY += Math.cos(newRotation) * moveSpeed * deltaTime
+          touchTarget = null // Clear touch target when using keyboard
           moved = true
         }
 
@@ -276,6 +398,27 @@
       // Handle window resize
       window.addEventListener('resize', () => {
         resizeCanvas()
+      })
+
+      // Disable scrolling and zooming
+      document.addEventListener('touchmove', (e) => {
+        e.preventDefault()
+      }, { passive: false })
+
+      document.addEventListener('wheel', (e) => {
+        e.preventDefault()
+      }, { passive: false })
+
+      document.addEventListener('gesturestart', (e) => {
+        e.preventDefault()
+      })
+
+      document.addEventListener('gesturechange', (e) => {
+        e.preventDefault()
+      })
+
+      document.addEventListener('gestureend', (e) => {
+        e.preventDefault()
       })
     </script>
   </body>

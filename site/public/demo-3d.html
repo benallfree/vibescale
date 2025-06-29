@@ -2,11 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Vibescale 3D Demo</title>
     <style>
       body {
         margin: 0;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
       }
       canvas {
         display: block;
@@ -20,10 +26,39 @@
         background: rgba(0, 0, 0, 0.7);
         padding: 10px;
       }
+      
+      #joystick {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        width: 120px;
+        height: 120px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 50%;
+        user-select: none;
+        touch-action: none;
+      }
+      
+      #joystick-handle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.8);
+        border: 2px solid white;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
-    <div id="info">WASD to move</div>
+    <div id="info">WASD to move<br>Use joystick for touch control<br><span id="joystick-debug">Force: 0.0, Radians: 0.0</span></div>
+    <div id="joystick">
+      <div id="joystick-handle"></div>
+    </div>
     <script type="module">
       import * as THREE from 'https://unpkg.com/three@0.162.0/build/three.module.js'
       import { createRoom, RoomEventType } from 'https://unpkg.com/vibescale'
@@ -120,8 +155,29 @@
       const moveSpeed = 5.0 // Units per second
       const rotateSpeed = 2.0 // Radians per second
       let lastTime = performance.now()
+      
+      // Joystick controls
+      const joystick = {
+        force: 0, // 0-1, distance from center
+        radians: 0, // angle in radians
+        active: false
+      }
+      const joystickElement = document.getElementById('joystick')
+      const joystickHandle = document.getElementById('joystick-handle')
+      const joystickDebug = document.getElementById('joystick-debug')
+      const joystickRadius = 60 // Half of joystick width (120px / 2)
+      const handleRadius = 20 // Half of handle width (40px / 2)
+
+      function resetJoystick() {
+        joystick.force = 0
+        joystick.radians = 0
+        joystick.active = false
+        joystickHandle.style.transform = 'translate(-50%, -50%)'
+        joystickDebug.textContent = `Force: 0.0, Radians: 0.0`
+      }
 
       function setupControls() {
+        // Keyboard controls
         document.addEventListener('keydown', (e) => {
           if (keys.hasOwnProperty(e.key.toLowerCase())) {
             keys[e.key.toLowerCase()] = true
@@ -133,6 +189,68 @@
             keys[e.key.toLowerCase()] = false
           }
         })
+
+        // Joystick controls
+        function updateJoystick(clientX, clientY) {
+          const rect = joystickElement.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          
+          // Calculate offset from center
+          const offsetX = clientX - centerX
+          const offsetY = clientY - centerY
+          const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY)
+          
+          // Constrain to joystick radius
+          const constrainedDistance = Math.min(distance, joystickRadius - handleRadius)
+          joystick.force = constrainedDistance / (joystickRadius - handleRadius)
+          
+          if (distance > 0) {
+            // Calculate angle (radians)
+            joystick.radians = Math.atan2(offsetX, -offsetY) // Note: -offsetY because screen Y is flipped
+            
+            // Update handle position
+            const handleX = Math.sin(joystick.radians) * constrainedDistance
+            const handleY = -Math.cos(joystick.radians) * constrainedDistance
+            joystickHandle.style.transform = `translate(-50%, -50%) translate(${handleX}px, ${handleY}px)`
+          } else {
+            joystick.radians = 0
+            joystickHandle.style.transform = 'translate(-50%, -50%)'
+          }
+          
+          // Update debug display
+          joystickDebug.textContent = `Force: ${joystick.force.toFixed(2)}, Radians: ${joystick.radians.toFixed(2)}`
+        }
+
+        function startJoystick(e) {
+          e.preventDefault()
+          joystick.active = true
+          const touch = e.touches ? e.touches[0] : e
+          updateJoystick(touch.clientX, touch.clientY)
+        }
+
+        function moveJoystick(e) {
+          if (!joystick.active) return
+          e.preventDefault()
+          const touch = e.touches ? e.touches[0] : e
+          updateJoystick(touch.clientX, touch.clientY)
+        }
+
+        function endJoystick(e) {
+          e.preventDefault()
+          resetJoystick()
+        }
+
+        // Mouse events for desktop
+        joystickElement.addEventListener('mousedown', startJoystick)
+        document.addEventListener('mousemove', moveJoystick)
+        document.addEventListener('mouseup', endJoystick)
+
+        // Touch events for mobile
+        joystickElement.addEventListener('touchstart', startJoystick)
+        document.addEventListener('touchmove', moveJoystick)
+        document.addEventListener('touchend', endJoystick)
+        document.addEventListener('touchcancel', endJoystick)
       }
 
       function updateLocalPlayer() {
@@ -149,13 +267,38 @@
         let moved = false
         const { mesh } = playerData
 
-        // Handle rotation with A/D
+        // Handle joystick movement
+        if (joystick.active && joystick.force > 0.1) {
+          // Extract X and Y components from joystick
+          const joystickX = Math.sin(joystick.radians) * joystick.force // -1 to 1, left/right
+          const joystickY = -Math.cos(joystick.radians) * joystick.force // -1 to 1, up/down (negated because screen Y is flipped)
+          
+          // Handle rotation (X axis = A/D keys)
+          if (Math.abs(joystickX) > 0.1) {
+            // Reverse rotation when moving backward (like backing up a car)
+            const rotationDirection = joystickY < 0 ? -joystickX : joystickX
+            mesh.rotation.y += rotationDirection * rotateSpeed * deltaTime
+            moved = true
+          }
+          
+          // Handle forward/backward movement (Y axis = W/S keys)
+          if (Math.abs(joystickY) > 0.1) {
+            const moveVector = new THREE.Vector3(0, 0, joystickY * moveSpeed * deltaTime)
+            moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), mesh.rotation.y)
+            mesh.position.add(moveVector)
+            moved = true
+          }
+        }
+
+        // Handle keyboard controls (can override joystick controls)
         if (keys.a) {
           mesh.rotation.y += rotateSpeed * deltaTime
+          resetJoystick() // Clear joystick when using keyboard
           moved = true
         }
         if (keys.d) {
           mesh.rotation.y -= rotateSpeed * deltaTime
+          resetJoystick() // Clear joystick when using keyboard
           moved = true
         }
 
@@ -163,10 +306,12 @@
         const moveVector = new THREE.Vector3()
         if (keys.w) {
           moveVector.z = -moveSpeed * deltaTime
+          resetJoystick() // Clear joystick when using keyboard
           moved = true
         }
         if (keys.s) {
           moveVector.z = moveSpeed * deltaTime
+          resetJoystick() // Clear joystick when using keyboard
           moved = true
         }
 
@@ -212,6 +357,27 @@
         camera.aspect = window.innerWidth / window.innerHeight
         camera.updateProjectionMatrix()
         renderer.setSize(window.innerWidth, window.innerHeight)
+      })
+
+      // Disable scrolling and zooming
+      document.addEventListener('touchmove', (e) => {
+        e.preventDefault()
+      }, { passive: false })
+
+      document.addEventListener('wheel', (e) => {
+        e.preventDefault()
+      }, { passive: false })
+
+      document.addEventListener('gesturestart', (e) => {
+        e.preventDefault()
+      })
+
+      document.addEventListener('gesturechange', (e) => {
+        e.preventDefault()
+      })
+
+      document.addEventListener('gestureend', (e) => {
+        e.preventDefault()
       })
     </script>
   </body>
