@@ -40,9 +40,8 @@ export const Navbar = () => {
 
   return nav(
     {
-      class: 'shadow-md fixed w-full top-0 left-0 z-50 border-b border-gray-200',
+      class: 'shadow-md w-full top-0 left-0 z-50 border-b border-gray-200',
     },
-    `fubar`,
     [
       div(
         {
@@ -62,7 +61,9 @@ export const Navbar = () => {
                     'data-navigo': true,
                     class: 'text-xl font-bold text-primary',
                   },
-                  `Vibescale v${packageJson.version}`
+                  `Vibescale`,
+                  ' ',
+                  span({ class: 'text-xs text-gray-500' }, `v${packageJson.version}`)
                 ),
               ]),
               // Desktop navigation
