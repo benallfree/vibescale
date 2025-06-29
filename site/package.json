@@ -30,7 +30,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy": "wrangler deploy",
+    "deploy": "bun run build && wrangler deploy",
     "ship": "bun run build && bun run deploy"
   },
   "devDependencies": {
