@@ -1,5 +1,11 @@
 # vibescale
 
+## 3.0.1
+
+### Patch Changes
+
+- c6b9a59: Include src
+
 ## 3.0.0
 
 ### Major Changes
