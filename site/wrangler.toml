@@ -2,6 +2,10 @@ name = "vibescale"
 compatibility_date = "2025-04-04"
 main = "./src/server/index.ts"
 
+[dev]
+ip = "0.0.0.0"
+
+
 [durable_objects]
 bindings = [
   { class_name = "VibescaleServer", name = "VIBESCALE" }
