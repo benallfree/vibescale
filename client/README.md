@@ -138,7 +138,14 @@ enum RoomEventType {
 
   // Local player events
   LocalPlayerMutated = 'local:player:mutated',
+  LocalPlayerJoined = 'local:player:joined',
+  LocalPlayerUpdated = 'local:player:updated',
   AfterLocalPlayerMutated = 'local:player:after:mutated',
+
+  // Player events
+  PlayerJoined = 'player:joined',
+  PlayerLeft = 'player:left',
+  PlayerUpdated = 'player:updated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',
@@ -194,6 +201,31 @@ The event system provides full type safety:
 - Event payloads are typed according to RoomEventPayloads
 - Event handlers receive properly typed event objects
 - The wildcard event '\*' captures all events with their proper types
+
+#### Event Categories
+
+The new event system provides granular control over different types of player events:
+
+**Remote Player Events** - Events for other players in the room:
+
+- `RemotePlayerJoined`: When a remote player joins
+- `RemotePlayerLeft`: When a remote player leaves
+- `RemotePlayerUpdated`: When a remote player's state changes
+
+**Local Player Events** - Events for your own player:
+
+- `LocalPlayerMutated`: When you mutate your local player state
+- `LocalPlayerJoined`: When your local player first joins the room
+- `LocalPlayerUpdated`: When your local player state is updated from the server
+- `AfterLocalPlayerMutated`: After a local player mutation is complete
+
+**Universal Player Events** - Events for any player (local or remote):
+
+- `PlayerJoined`: When any player joins (fires for both local and remote)
+- `PlayerLeft`: When any player leaves (fires for both local and remote)
+- `PlayerUpdated`: When any player's state changes (fires for both local and remote)
+
+This layered approach allows you to handle events at the granularity that makes sense for your application - listen to specific player types or use the universal events for simpler handling.
 
 ### Room Interface
 

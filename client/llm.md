@@ -104,7 +104,14 @@ enum RoomEventType {
 
   // Local player events
   LocalPlayerMutated = 'local:player:mutated',
+  LocalPlayerJoined = 'local:player:joined',
+  LocalPlayerUpdated = 'local:player:updated',
   AfterLocalPlayerMutated = 'local:player:after:mutated',
+
+  // Player events
+  PlayerJoined = 'player:joined',
+  PlayerLeft = 'player:left',
+  PlayerUpdated = 'player:updated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',
@@ -136,7 +143,14 @@ interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
 
   // Local player events
   [RoomEventType.LocalPlayerMutated]: TPlayer
+  [RoomEventType.LocalPlayerJoined]: TPlayer
+  [RoomEventType.LocalPlayerUpdated]: TPlayer
   [RoomEventType.AfterLocalPlayerMutated]: TPlayer
+
+  // Player events
+  [RoomEventType.PlayerJoined]: TPlayer
+  [RoomEventType.PlayerLeft]: TPlayer
+  [RoomEventType.PlayerUpdated]: TPlayer
 
   // WebSocket events
   [RoomEventType.WebSocketInfo]: Record<string, any>
@@ -168,7 +182,12 @@ interface RoomEventPayloads<TPlayer extends PlayerBase = PlayerBase> {
    - `RemotePlayerLeft`: Emitted when a remote player leaves with their last state
    - `RemotePlayerUpdated`: Emitted when any remote player's state changes
    - `LocalPlayerMutated`: Emitted when the local player's state is mutated
+   - `LocalPlayerJoined`: Emitted when the local player first joins the room
+   - `LocalPlayerUpdated`: Emitted when the local player's state is updated from the server
    - `AfterLocalPlayerMutated`: Emitted after the local player's state mutation is complete
+   - `PlayerJoined`: Emitted when any player (local or remote) joins the room
+   - `PlayerLeft`: Emitted when any player (local or remote) leaves the room
+   - `PlayerUpdated`: Emitted when any player's (local or remote) state changes
 
 3. WebSocket Events
 

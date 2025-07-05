@@ -226,16 +226,19 @@ export function createRoom<TPlayer extends PlayerBase>(
           playerId = player.id
         }
         if (player.isConnected) {
-          if (!players.has(player.id)) {
-            emitter.emit(RoomEventType.RemotePlayerJoined, player)
-          } else {
-            emitter.emit(RoomEventType.RemotePlayerUpdated, player)
-          }
+          const isNewPlayer = !players.has(player.id)
           players.set(player.id, player)
+          if (isNewPlayer) {
+            emitter.emit(player.isLocal ? RoomEventType.LocalPlayerJoined : RoomEventType.RemotePlayerJoined, player)
+            emitter.emit(RoomEventType.PlayerJoined, player)
+          }
         } else {
           players.delete(player.id)
           emitter.emit(RoomEventType.RemotePlayerLeft, player)
+          emitter.emit(RoomEventType.PlayerLeft, player)
         }
+        emitter.emit(player.isLocal ? RoomEventType.LocalPlayerUpdated : RoomEventType.RemotePlayerUpdated, player)
+        emitter.emit(RoomEventType.PlayerUpdated, player)
         break
 
       case MessageType.Version:
