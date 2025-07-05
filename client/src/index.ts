@@ -117,12 +117,7 @@ export function vibescale<TPlayer extends PlayerBase>(
           type: MessageType.PlayerState,
           ...serverState,
         }
-        const jsonMessage = JSON.stringify(message)
-        emitter.emit(RoomEventType.Tx, jsonMessage)
-        if (ws?.readyState === WebSocket.OPEN) {
-          console.log('tx', jsonMessage)
-          ws.send(jsonMessage)
-        }
+        _send(message)
       }
       emitter.emit(RoomEventType.LocalPlayerMutated, newState)
       emitter.emit(RoomEventType.AfterLocalPlayerMutated, newState)
@@ -208,6 +203,17 @@ export function vibescale<TPlayer extends PlayerBase>(
         }
       }
     },
+  }
+
+  /**
+   * Helper function to send messages to the server
+   */
+  function _send(message: WebSocketMessage | PatchStateMessage) {
+    const jsonMessage = JSON.stringify(message)
+    emitter.emit(RoomEventType.Tx, jsonMessage)
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(jsonMessage)
+    }
   }
 
   function handleRxMessage(message: WebSocketMessage<TPlayer>) {
