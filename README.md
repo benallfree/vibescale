@@ -17,7 +17,7 @@ npm install vibescale
 For potentially better minification in your bundler, you can import the TypeScript source directly:
 
 ```typescript
-import { createRoom, RoomEventType } from 'vibescale/ts'
+import { vibescale, RoomEventType } from 'vibescale/ts'
 ```
 
 This imports the raw TypeScript files instead of the compiled JavaScript, allowing your bundler to optimize the code during your build process.
@@ -25,10 +25,10 @@ This imports the raw TypeScript files instead of the compiled JavaScript, allowi
 ## Quick Start
 
 ```typescript
-import { createRoom, RoomEventType } from 'vibescale'
+import { vibescale, RoomEventType } from 'vibescale'
 
 // Connect to a room with optional custom endpoint
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   endpoint: 'https://your-server.com', // Optional, defaults to https://vibescale.benallfree.com/
 })
 
@@ -108,7 +108,7 @@ const isConnected = room.isConnected() // Returns true if connected to server
 ### Room Creation
 
 ```typescript
-function createRoom<TPlayer extends PlayerBase = PlayerBase>(
+function vibescale<TPlayer extends PlayerBase = PlayerBase>(
   roomName: string,
   options?: RoomOptions<TPlayer>
 ): Room<TPlayer>
@@ -138,7 +138,14 @@ enum RoomEventType {
 
   // Local player events
   LocalPlayerMutated = 'local:player:mutated',
+  LocalPlayerJoined = 'local:player:joined',
+  LocalPlayerUpdated = 'local:player:updated',
   AfterLocalPlayerMutated = 'local:player:after:mutated',
+
+  // Player events
+  PlayerJoined = 'player:joined',
+  PlayerLeft = 'player:left',
+  PlayerUpdated = 'player:updated',
 
   // WebSocket events
   WebSocketInfo = 'websocket:info',
@@ -195,6 +202,31 @@ The event system provides full type safety:
 - Event handlers receive properly typed event objects
 - The wildcard event '\*' captures all events with their proper types
 
+#### Event Categories
+
+The new event system provides granular control over different types of player events:
+
+**Remote Player Events** - Events for other players in the room:
+
+- `RemotePlayerJoined`: When a remote player joins
+- `RemotePlayerLeft`: When a remote player leaves
+- `RemotePlayerUpdated`: When a remote player's state changes
+
+**Local Player Events** - Events for your own player:
+
+- `LocalPlayerMutated`: When you mutate your local player state
+- `LocalPlayerJoined`: When your local player first joins the room
+- `LocalPlayerUpdated`: When your local player state is updated from the server
+- `AfterLocalPlayerMutated`: After a local player mutation is complete
+
+**Universal Player Events** - Events for any player (local or remote):
+
+- `PlayerJoined`: When any player joins (fires for both local and remote)
+- `PlayerLeft`: When any player leaves (fires for both local and remote)
+- `PlayerUpdated`: When any player's state changes (fires for both local and remote)
+
+This layered approach allows you to handle events at the granularity that makes sense for your application - listen to specific player types or use the universal events for simpler handling.
+
 ### Room Interface
 
 ```typescript
@@ -247,7 +279,7 @@ interface GamePlayer extends PlayerBase {
 }
 
 // Create a room with your custom type
-const room = createRoom<GamePlayer>('my-game')
+const room = vibescale<GamePlayer>('my-game')
 
 // TypeScript will now enforce your custom types
 room.mutateLocalPlayer((draft) => {
@@ -272,7 +304,7 @@ Vibescale supports different state management libraries for immutable updates. B
 
 ```typescript
 // Uses built-in shallow copy - you handle nested object copying
-const room = createRoom('my-game')
+const room = vibescale('my-game')
 
 room.mutateLocalPlayer((draft) => {
   // Top-level properties can be mutated directly
@@ -290,10 +322,10 @@ room.mutateLocalPlayer((draft) => {
 
 ```typescript
 import { produce } from 'immer'
-import { createRoom } from 'vibescale'
+import { vibescale } from 'vibescale'
 
 // Configure room to use Immer's produce function
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   produce // Pass immer's produce function
 })
 
@@ -308,10 +340,10 @@ room.mutateLocalPlayer((draft) => {
 
 ```typescript
 import { produce } from 'mutative'
-import { createRoom } from 'vibescale'
+import { vibescale } from 'vibescale'
 
 // Configure room to use Mutative's produce function
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   produce // Pass mutative's produce function
 })
 
@@ -326,7 +358,7 @@ room.mutateLocalPlayer((draft) => {
 You can also provide your own state management implementation:
 
 ```typescript
-import { createRoom, type ProduceFn } from 'vibescale'
+import { vibescale, type ProduceFn } from 'vibescale'
 
 const customProduce: ProduceFn = <T>(state: T, mutator: (draft: T) => void): T => {
   // Your custom immutable update logic - this example does shallow copy
@@ -335,7 +367,7 @@ const customProduce: ProduceFn = <T>(state: T, mutator: (draft: T) => void): T =
   return newState
 }
 
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   produce: customProduce
 })
 ```
@@ -373,7 +405,7 @@ interface GamePlayer extends PlayerBase {
   equipment: string[]
 }
 
-const room = createRoom<GamePlayer>('my-game', {
+const room = vibescale<GamePlayer>('my-game', {
   normalizePlayerState: (partialPlayer) => {
     // Fill in defaults for any missing custom properties
     return {
@@ -414,7 +446,7 @@ const gameNormalizer = createPlayerStateNormalizer<GamePlayer>({
   }
 })
 
-const room = createRoom<GamePlayer>('my-game', {
+const room = vibescale<GamePlayer>('my-game', {
   normalizePlayerState: gameNormalizer
 })
 ```
@@ -435,12 +467,12 @@ The factory uses `defaultNormalizePlayerState` internally, which provides these 
 import { defaultNormalizePlayerState } from 'vibescale'
 
 // Use default normalization directly
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   normalizePlayerState: defaultNormalizePlayerState
 })
 
 // Or combine with custom logic
-const room = createRoom<GamePlayer>('my-game', {
+const room = vibescale<GamePlayer>('my-game', {
   normalizePlayerState: (partialPlayer) => {
     // First apply default normalization
     const normalized = defaultNormalizePlayerState(partialPlayer)
@@ -474,7 +506,7 @@ interface GamePlayer extends PlayerBase {
 }
 
 // Create room with custom type
-const room = createRoom<GamePlayer>('my-game')
+const room = vibescale<GamePlayer>('my-game')
 
 // Update state with mutations
 room.mutateLocalPlayer((draft) => {
@@ -560,7 +592,7 @@ The library includes configurable state change detection to optimize network tra
 
 ```typescript
 import { 
-  createRoom, 
+  vibescale, 
   createStateChangeDetector, 
   hasSignificantStateChange, 
   type StateChangeDetectorFn,
@@ -568,10 +600,10 @@ import {
 } from 'vibescale'
 
 // Use default state change detector (0.1 units position, 0.1 radians rotation)
-const room = createRoom('my-game')
+const room = vibescale('my-game')
 
 // Create custom detector with specific thresholds
-const room = createRoom('precision-game', {
+const room = vibescale('precision-game', {
   stateChangeDetectorFn: createStateChangeDetector({
     positionDistance: 0.01, // Very precise - detect 1cm movements
     rotationAngle: 0.01,    // Very precise - detect small rotations
@@ -579,7 +611,7 @@ const room = createRoom('precision-game', {
 })
 
 // Large world with less sensitive detection
-const room = createRoom('large-world', {
+const room = vibescale('large-world', {
   stateChangeDetectorFn: createStateChangeDetector({
     positionDistance: 1.0,  // Ignore movements under 1 unit
     rotationAngle: 0.2,     // Less sensitive to rotation changes
@@ -594,7 +626,7 @@ interface GamePlayer extends PlayerBase {
   score: number
 }
 
-const room = createRoom<GamePlayer>('fps-game', {
+const room = vibescale<GamePlayer>('fps-game', {
   stateChangeDetectorFn: createStateChangeDetector<GamePlayer>({
     positionDistance: 0.1,
     rotationAngle: 0.05,
@@ -629,7 +661,7 @@ const gameDetector = (current: GamePlayer, next: GamePlayer): boolean => {
   )
 }
 
-const room = createRoom<GamePlayer>('fps-game-alt', {
+const room = vibescale<GamePlayer>('fps-game-alt', {
   stateChangeDetectorFn: gameDetector,
 })
 ```
@@ -694,13 +726,13 @@ const customDetector = (current: PlayerBase, next: PlayerBase) => {
 
 ```typescript
 import * as THREE from 'three'
-import { createRoom, RoomEventType } from 'vibescale'
+import { vibescale, RoomEventType } from 'vibescale'
 
 const scene = new THREE.Scene()
 const players = new Map<string, THREE.Mesh>()
 
 // Create room with coordinate conversion for Three.js world space
-const room = createRoom('three-js-room', {
+const room = vibescale('three-js-room', {
   coordinateConverter: createCoordinateConverter(10) // Maps server -1:1 to Three.js -10:10
 })
 room.connect()
@@ -757,20 +789,20 @@ function onPlayerMove(position: Vector3, rotation: Vector3) {
 Vibescale server uses normalized coordinates (-1 to 1) for all axes, but your game may use different coordinate systems. The client library provides automatic coordinate conversion:
 
 ```typescript
-import { createRoom, createCoordinateConverter } from 'vibescale'
+import { vibescale, createCoordinateConverter } from 'vibescale'
 
 // Single scale for all axes
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   coordinateConverter: createCoordinateConverter(10) // Maps server -1:1 to world -10:10
 })
 
 // Different scales per axis
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   coordinateConverter: createCoordinateConverter({ x: 10, y: 5, z: 20 })
 })
 
 // Using the helper function with individual values
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   coordinateConverter: createCoordinateConverter(10, 5, 20) // x=10, y=5, z=20
 })
 ```

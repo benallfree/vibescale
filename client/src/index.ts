@@ -46,7 +46,7 @@ const defaultProduce = <TPlayer extends PlayerBase>(state: TPlayer, mutator: (dr
  * import { produce } from 'mutative'
  * const room = createRoom('my-room', { produce })
  */
-export function createRoom<TPlayer extends PlayerBase>(
+export function vibescale<TPlayer extends PlayerBase>(
   roomName: string,
   options: RoomOptions<TPlayer> = {}
 ): Room<TPlayer> {
@@ -256,3 +256,7 @@ export function createRoom<TPlayer extends PlayerBase>(
 
   return room
 }
+
+const createRoom = vibescale
+
+export { createRoom }

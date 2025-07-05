@@ -7,14 +7,14 @@ This guide is specifically for AI language models integrating with Vibescale. It
 ## Basic Usage
 
 ```typescript
-import { createRoom, RoomEventType } from 'vibescale'
+import { vibescale, RoomEventType } from 'vibescale'
 
 // Create and connect to a room
-const room = createRoom('my-room', {
+const room = vibescale('my-room', {
   endpoint: 'https://vibescale.benallfree.com', // Optional
 })
 
-> **TypeScript Import for Better Minification**: You can import the TypeScript source directly with `import { createRoom, RoomEventType } from 'vibescale/ts'` for potentially better minification in your bundler.
+> **TypeScript Import for Better Minification**: You can import the TypeScript source directly with `import { vibescale, RoomEventType } from 'vibescale/ts'` for potentially better minification in your bundler.
 
 > **Connection Ephemerality**: Room connections are completely ephemeral. Each disconnect/reconnect cycle generates a new player ID, and previous connection data should not be trusted. The `Connected` event handler should treat each connection as a fresh start by clearing all data structures. There is no session persistence between connections.
 
@@ -252,11 +252,11 @@ The library provides endpoint management through the `getEndpointUrl` method and
 
 ```typescript
 // Default endpoint
-const room = createRoom('my-room')
+const room = vibescale('my-room')
 console.log(room.getEndpointUrl()) // https://vibescale.benallfree.com/my-room
 
 // Custom endpoint
-const room = createRoom('my-room', {
+const room = vibescale('my-room', {
   endpoint: 'https://custom-server.com',
 })
 console.log(room.getEndpointUrl()) // https://custom-server.com
@@ -287,7 +287,7 @@ interface GamePlayer extends PlayerBase {
   equipment: string[]
 }
 
-const room = createRoom<GamePlayer>('my-game', {
+const room = vibescale<GamePlayer>('my-game', {
   normalizePlayerState: (partialPlayer) => {
     // Fill in defaults for any missing custom properties
     return {
@@ -328,7 +328,7 @@ const gameNormalizer = createPlayerStateNormalizer<GamePlayer>({
   }
 })
 
-const room = createRoom<GamePlayer>('my-game', {
+const room = vibescale<GamePlayer>('my-game', {
   normalizePlayerState: gameNormalizer
 })
 ```
@@ -376,7 +376,7 @@ The factory uses `defaultNormalizePlayerState` internally, which provides these 
 import { defaultNormalizePlayerState, createPlayerStateNormalizer } from 'vibescale'
 
 // Use default normalization directly
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   normalizePlayerState: defaultNormalizePlayerState
 })
 
@@ -392,7 +392,7 @@ const customOnlyNormalizer = createPlayerStateNormalizer<GamePlayer>({
 })
 
 // Combine default and custom normalization manually
-const room = createRoom<GamePlayer>('my-game', {
+const room = vibescale<GamePlayer>('my-game', {
   normalizePlayerState: (partialPlayer) => {
     // First apply default normalization
     const normalized = defaultNormalizePlayerState(partialPlayer)
@@ -438,7 +438,7 @@ interface GamePlayer extends PlayerBase {
 }
 
 // Create room with your custom state type
-const room = createRoom<GamePlayer>('game-room')
+const room = vibescale<GamePlayer>('game-room')
 
 // Track all players with proper typing
 const players = new Map<PlayerId, GamePlayer>()
@@ -475,15 +475,15 @@ room.mutateLocalPlayer((draft) => {
 
 ```typescript
 // Default (shallow copy + manual spreading)
-const room = createRoom<GamePlayer>('game-room')
+const room = vibescale<GamePlayer>('game-room')
 
 // With Immer
 import { produce } from 'immer'
-const room = createRoom<GamePlayer>('game-room', { produce })
+const room = vibescale<GamePlayer>('game-room', { produce })
 
 // With Mutative
 import { produce } from 'mutative'
-const room = createRoom<GamePlayer>('game-room', { produce })
+const room = vibescale<GamePlayer>('game-room', { produce })
 
 // Custom produce function
 import { type ProduceFn } from 'vibescale'
@@ -492,7 +492,7 @@ const customProduce: ProduceFn = <T>(state: T, mutator: (draft: T) => void): T =
   mutator(newState)
   return newState
 }
-const room = createRoom<GamePlayer>('game-room', { produce: customProduce })
+const room = vibescale<GamePlayer>('game-room', { produce: customProduce })
 ```
 
 The state management system has these key features:
@@ -514,7 +514,7 @@ interface GamePlayer extends PlayerBase {
 }
 
 // Create room with game-specific state
-const room = createRoom<GamePlayer>('game-room')
+const room = vibescale<GamePlayer>('game-room')
 
 // Track all players
 const players = new Map<PlayerId, GamePlayer>()
@@ -567,7 +567,7 @@ The library provides configurable state change detection through the `createStat
 
 ```typescript
 import { 
-  createRoom, 
+  vibescale, 
   createStateChangeDetector, 
   hasSignificantStateChange,
   type StateChangeDetectorFn,
@@ -575,10 +575,10 @@ import {
 } from 'vibescale'
 
 // Use default detector (0.1 units position, 0.1 radians rotation)
-const room = createRoom<GamePlayer>('my-game')
+const room = vibescale<GamePlayer>('my-game')
 
 // Custom detector with specific thresholds
-const room = createRoom<GamePlayer>('precision-game', {
+const room = vibescale<GamePlayer>('precision-game', {
   stateChangeDetectorFn: createStateChangeDetector({
     positionDistance: 0.01, // 1cm precision
     rotationAngle: 0.01,    // ~0.5 degree precision
@@ -586,7 +586,7 @@ const room = createRoom<GamePlayer>('precision-game', {
 })
 
 // Large world detector
-const room = createRoom<GamePlayer>('large-world', {
+const room = vibescale<GamePlayer>('large-world', {
   stateChangeDetectorFn: createStateChangeDetector({
     positionDistance: 1.0,  // 1 unit threshold
     rotationAngle: 0.2,     // ~11 degree threshold
@@ -600,7 +600,7 @@ interface GamePlayer extends PlayerBase {
   weaponId: string
 }
 
-const room = createRoom<GamePlayer>('fps-game', {
+const room = vibescale<GamePlayer>('fps-game', {
   stateChangeDetectorFn: createStateChangeDetector<GamePlayer>({
     positionDistance: 0.1,
     rotationAngle: 0.05,
@@ -634,7 +634,7 @@ const gameDetector = (current: GamePlayer, next: GamePlayer): boolean => {
   )
 }
 
-const room = createRoom<GamePlayer>('fps-game-alt', {
+const room = vibescale<GamePlayer>('fps-game-alt', {
   stateChangeDetectorFn: gameDetector,
 })
 ```
@@ -738,7 +738,7 @@ The reconnection system uses exponential backoff with the following behavior:
    - Log errors appropriately
    - Maintain game state during reconnection
 
-The library handles WebSocket connection, reconnection, and message serialization automatically. Focus on using the high-level API provided by `createRoom` rather than managing WebSocket connections directly.
+The library handles WebSocket connection, reconnection, and message serialization automatically. Focus on using the high-level API provided by `vibescale` rather than managing WebSocket connections directly.
 
 ## Event System
 
@@ -893,20 +893,20 @@ The version message is sent as the first message after WebSocket connection esta
 Vibescale server uses normalized coordinates (-1 to 1) for all axes, but your game may use different coordinate systems. The client library provides automatic coordinate conversion through the `coordinateConverter` option:
 
 ```typescript
-import { createRoom, createCoordinateConverter } from 'vibescale'
+import { vibescale, createCoordinateConverter } from 'vibescale'
 
 // Single scale for all axes
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   coordinateConverter: createCoordinateConverter(10) // Maps server -1:1 to world -10:10
 })
 
 // Different scales per axis
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   coordinateConverter: createCoordinateConverter({ x: 10, y: 5, z: 20 })
 })
 
 // Using the helper function with individual values
-const room = createRoom('my-game', {
+const room = vibescale('my-game', {
   coordinateConverter: createCoordinateConverter(10, 5, 20) // x=10, y=5, z=20
 })
 ```
