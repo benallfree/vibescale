@@ -18,7 +18,7 @@ interface CloudflareWebSocket extends WebSocket {
 }
 
 export class VibescaleServer extends DurableObject<Env> {
-  private readonly wsByRoomName = new Map<RoomName, Set<CloudflareWebSocket>>()
+  private readonly wsRef = new Set<CloudflareWebSocket>()
   private readonly wsStateByWs = new Map<CloudflareWebSocket, WsMeta>()
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -27,40 +27,31 @@ export class VibescaleServer extends DurableObject<Env> {
     for (const ws of ctx.getWebSockets()) {
       const cloudflareWs = ws as CloudflareWebSocket
       const meta = cloudflareWs.deserializeAttachment()
-      if (!meta?.player || !meta?.roomName) {
+      if (!meta?.player) {
         ws.close(1000, 'Invalid WebSocket attachment')
         continue
       }
 
-      this.addWebSocket(cloudflareWs, meta.player, meta.roomName)
+      this.addWebSocket(cloudflareWs, meta.player)
     }
   }
 
-  private addWebSocket(ws: CloudflareWebSocket, player: PlayerBase, roomName: RoomName) {
-    const meta: WsMeta = { player, roomName }
+  private addWebSocket(ws: CloudflareWebSocket, player: PlayerBase) {
+    const meta: WsMeta = { player }
     this.wsStateByWs.set(ws, meta)
-    if (!this.wsByRoomName.has(roomName)) {
-      this.wsByRoomName.set(roomName, new Set())
-    }
-    this.wsByRoomName.get(roomName)!.add(ws)
+    this.wsRef.add(ws)
   }
 
   private removeWebSocket(ws: CloudflareWebSocket) {
     const meta = this.wsStateByWs.get(ws)
-    if (!meta?.player || !meta?.roomName) return
+    if (!meta?.player) return
 
     this.wsStateByWs.delete(ws)
-    const roomSockets = this.wsByRoomName.get(meta.roomName)
-    if (roomSockets) {
-      roomSockets.delete(ws)
-      if (roomSockets.size === 0) {
-        this.wsByRoomName.delete(meta.roomName)
-      }
-    }
+    this.wsRef.delete(ws)
   }
 
-  private playersOnline(roomName: string) {
-    return this.wsByRoomName.get(roomName)?.size || 0
+  private playersOnline() {
+    return this.wsRef.size
   }
 
   async fetch(request: Request) {
@@ -76,7 +67,7 @@ export class VibescaleServer extends DurableObject<Env> {
       case 'websocket':
         return this.handleWebSocket(request, roomName)
       case undefined:
-        return text(`${roomName} is healthy. ${this.playersOnline(roomName)} players online.`)
+        return text(`${roomName} is healthy. ${this.playersOnline()} players online.`)
       default:
         return text(`Unknown command: ${command}`, {
           status: 400,
@@ -114,10 +105,9 @@ export class VibescaleServer extends DurableObject<Env> {
 
     cloudflareWs.serializeAttachment({
       player: initialPlayer,
-      roomName,
     })
 
-    this.addWebSocket(cloudflareWs, initialPlayer, roomName)
+    this.addWebSocket(cloudflareWs, initialPlayer)
 
     // Send version information first
     this.sendMessage(cloudflareWs, {
@@ -132,8 +122,8 @@ export class VibescaleServer extends DurableObject<Env> {
       isLocal: true,
     })
 
-    this.sendInitialGameState(roomName, playerId, cloudflareWs)
-    this.announcePlayerJoin(roomName, initialPlayer)
+    this.sendInitialGameState(playerId, cloudflareWs)
+    this.announcePlayerJoin(initialPlayer)
 
     return new Response(null, {
       status: 101,
@@ -141,9 +131,8 @@ export class VibescaleServer extends DurableObject<Env> {
     })
   }
 
-  private announcePlayerJoin(roomName: RoomName, player: PlayerBase) {
+  private announcePlayerJoin(player: PlayerBase) {
     this.broadcast(
-      roomName,
       {
         type: MessageType.PlayerState,
         ...player,
@@ -153,8 +142,8 @@ export class VibescaleServer extends DurableObject<Env> {
     )
   }
 
-  private sendInitialGameState(roomName: RoomName, playerId: PlayerId, cloudflareWs: CloudflareWebSocket) {
-    this.wsByRoomName.get(roomName)?.forEach((socket) => {
+  private sendInitialGameState(playerId: PlayerId, cloudflareWs: CloudflareWebSocket) {
+    this.wsRef.forEach((socket) => {
       if (socket.readyState !== WebSocket.OPEN) return
       const wsState = this.wsStateByWs.get(socket)
       if (!wsState?.player || wsState.player.id === playerId) return
@@ -182,7 +171,7 @@ export class VibescaleServer extends DurableObject<Env> {
   async webSocketMessage(ws: CloudflareWebSocket, message: string) {
     const data = JSON.parse(message) as WebSocketMessage
     const wsState = this.wsStateByWs.get(ws)
-    if (!wsState?.player || !wsState?.roomName) return
+    if (!wsState?.player) return
 
     switch (data.type) {
       case MessageType.PlayerState: {
@@ -190,7 +179,6 @@ export class VibescaleServer extends DurableObject<Env> {
 
         this.savePlayer(ws, nextState)
         this.broadcast(
-          wsState.roomName,
           {
             type: MessageType.PlayerState,
             ...nextState,
@@ -214,13 +202,12 @@ export class VibescaleServer extends DurableObject<Env> {
 
   async webSocketClose(ws: CloudflareWebSocket, code: number, reason: string, wasClean: boolean) {
     const wsState = this.wsStateByWs.get(ws)
-    if (!wsState?.player || !wsState?.roomName) return
+    if (!wsState?.player) return
 
     this.removeWebSocket(ws)
 
     // Notify others of the disconnection
     this.broadcast(
-      wsState.roomName,
       {
         type: MessageType.PlayerState,
         ...wsState.player,
@@ -233,10 +220,8 @@ export class VibescaleServer extends DurableObject<Env> {
     ws.close(code, 'Durable Object is closing WebSocket')
   }
 
-  private broadcast(roomName: RoomName, message: WebSocketMessage, excludePlayerId: PlayerId) {
-    const sockets = this.wsByRoomName.get(roomName) || new Set()
-
-    for (const socket of sockets) {
+  private broadcast(message: WebSocketMessage, excludePlayerId: PlayerId) {
+    for (const socket of this.wsRef) {
       const wsState = this.wsStateByWs.get(socket)
       if (!wsState?.player || wsState.player.id === excludePlayerId) continue
       if (socket.readyState !== WebSocket.OPEN) continue
