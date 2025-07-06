@@ -12,7 +12,7 @@ export type Vector3 = {
   z: number
 }
 
-export interface BasePlayerFields {
+export interface PlayerBase {
   id: PlayerId
   position: Vector3
   rotation: Vector3
@@ -23,18 +23,15 @@ export interface BasePlayerFields {
 }
 
 export type PlayerStateExtension = {
-  [K in keyof BasePlayerFields]?: any
+  [K in keyof PlayerBase]?: any
 }
-
-export type PlayerBase<TStateExtension extends PlayerStateExtension = PlayerStateExtension> = BasePlayerFields &
-  TStateExtension
 
 /**
  * Function type for detecting significant state changes between two player states
  */
-export type StateChangeDetectorFn<TPlayerStateExtension extends PlayerStateExtension = PlayerStateExtension> = (
-  currentState: PlayerBase<TPlayerStateExtension>,
-  nextState: PlayerBase<TPlayerStateExtension>
+export type StateChangeDetectorFn<TPlayer extends PlayerBase = PlayerBase> = (
+  currentState: TPlayer,
+  nextState: TPlayer
 ) => boolean
 
 // Message types
@@ -45,9 +42,9 @@ export enum MessageType {
 }
 
 // WebSocket message types
-export type PlayerStateMessageBase<TPlayerStateExtension extends PlayerStateExtension = PlayerStateExtension> = {
+export type PlayerStateMessageBase<TPlayer extends PlayerBase = PlayerBase> = {
   type: MessageType.PlayerState
-} & PlayerBase<TPlayerStateExtension>
+} & TPlayer
 
 export type VersionMessage = {
   type: MessageType.Version
@@ -59,15 +56,14 @@ export type ErrorMessage = {
   message: string
 }
 
-export type WebSocketMessage<TPlayerStateExtension extends PlayerStateExtension = PlayerStateExtension> =
-  | PlayerStateMessageBase<TPlayerStateExtension>
+export type WebSocketMessage<TPlayer extends PlayerBase = PlayerBase> =
+  | PlayerStateMessageBase<TPlayer>
   | VersionMessage
   | ErrorMessage
 
 // Server-specific types (not used by client)
 export type RoomName = string
 
-export type WsMeta<TPlayerStateExtension extends PlayerStateExtension = PlayerStateExtension> = {
-  player: PlayerBase<TPlayerStateExtension>
-  roomName: RoomName
+export type WsMeta = {
+  player: PlayerBase
 }
